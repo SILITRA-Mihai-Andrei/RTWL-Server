@@ -1,16 +1,10 @@
 from datetime import datetime
+
+import Constants
 import Texts
+from Weather import Weather
 from Data import Data
 from Record import Record
-
-check_database_interval = 5
-older_than = 3  # hours
-
-min_weather_code = 100
-max_weather_code = 499
-
-data_path = 'data'
-weather_path = 'weather'
 
 
 def getTime():
@@ -45,7 +39,7 @@ def olderThan(record):
                 and splitted_record[2] == splitted_date[2]:
             record_minutes = int(splitted_record[3]) * 60 + int(splitted_record[4])
             minutes = int(splitted_date[3]) * 60 + int(splitted_date[4])
-            if int(minutes) - int(record_minutes) > older_than * 60:
+            if int(minutes) - int(record_minutes) > Constants.older_than * 60:
                 return True
             else:
                 return False
@@ -69,7 +63,7 @@ def getDataBaseLists(data, db):
                 try:
                     rec_list.append(Record(rec_name, Data(rec_data)))
                 except TypeError:
-                    db.child(data_path).child(reg).child(rec_name).remove()
+                    db.child(Constants.data_path).child(reg).child(rec_name).remove()
                     return None, None
             records.append(rec_list)
         return regions, records
@@ -80,25 +74,34 @@ def getDataBaseLists(data, db):
 
 def calculateWeatherForEachRegion(regions, records):
     if not bool(regions) or not bool(records):
-        return None, None
+        return None
     try:
         weather = []
-        danger = []
-        average = 0
         for i in range(len(regions)):
-            average = 0
-            for j in range(len(records.__getitem__(i))):
-                average += records.__getitem__(i).__getitem__(j).data.code
-            if len(records.__getitem__(i)) != 0:
-                average = average / len(records.__getitem__(i))
-                danger.append(None)
-                if inWeatherCodeRange(average, min_weather_code, max_weather_code):
-                    weather.append(getWeatherString(getWeatherIndex(average)))
-        return weather, danger
+            average_code = 0
+            average_temperature = 0
+            average_humidity = 0
+            average_air = 0
+            length = len(records.__getitem__(i))
+            for j in range(length):
+                data = records.__getitem__(i).__getitem__(j).data
+                average_code += data.code
+                average_temperature += data.temperature
+                average_humidity += data.humidity
+                average_air += data.air
+            if length != 0:
+                average_code = average_code / length
+                average_temperature = average_temperature / length
+                average_humidity = average_humidity / length
+                average_air = average_air / length
+                if inWeatherCodeRange(average_code, Constants.min_weather_code, Constants.max_weather_code):
+                    weather.append(Weather(getWeatherString(getWeatherIndex(average_code)), None,
+                                           average_temperature, average_humidity, average_air))
+        return weather
     except TypeError:
-        return None, None
+        return None
     except KeyError:
-        return None, None
+        return None
 
 
 def getWeatherIndex(code):

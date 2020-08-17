@@ -1,4 +1,6 @@
 import pyrebase
+
+import Constants
 import Texts
 import Utils
 from threading import Timer
@@ -11,13 +13,14 @@ def stream_handler(message):
     event = message["event"]
     data = message["data"]
     path = message["path"]
-    if event == 'put' and data is None and Utils.data_path in path:
-        db.child(path.replace(Utils.data_path, Utils.weather_path)).remove()
+    if event == 'put' and data is None and Constants.data_path in path:
+        print(Texts.region_deleted_weather_delete % path.split('/')[1])
+        db.child(path.replace(Constants.data_path, Constants.weather_path)).remove()
     if data is None:
         return
     try:
-        result = data[Utils.data_path].items()
-        print(Utils.getDataBaseLists(result, db))
+        # result = data[Utils.data_path].items()
+        # print(Utils.getDataBaseLists(result, db))
         return
     except KeyError:
         pass
@@ -34,7 +37,7 @@ def stream_handler(message):
 
 
 def checkDataBaseInterval():
-    data = db.child(Utils.data_path).get().val()
+    data = db.child(Constants.data_path).get().val()
     try:
         result = list(data.items())
     except AttributeError:
@@ -51,22 +54,23 @@ def checkDataBaseInterval():
                 record = records.__getitem__(i).__getitem__(j).name
                 if Utils.olderThan(record):
                     print(Texts.removing_record % record)
-                    db.child(Utils.data_path).child(region).child(record).remove()
-                    db.child(Utils.weather_path).child(region).remove()
+                    db.child(Constants.data_path).child(region).child(record).remove()
+                    db.child(Constants.weather_path).child(region).remove()
                     del data[region][record]
                     if not bool(data[region]):
                         del data[region]
         regions, records = Utils.getDataBaseLists(list(data.items()), db)
-        regions_weather, regions_danger = Utils.calculateWeatherForEachRegion(regions, records)
-        if regions_weather is not None and regions_danger is not None \
-                and len(regions) == len(regions_weather) and len(regions) == len(regions_danger):
+        weather = Utils.calculateWeatherForEachRegion(regions, records)
+        if weather is not None and len(regions) == len(weather):
             for i in range(len(regions)):
                 try:
-                    db.child(Utils.weather_path).child(regions[i]).child(Utils.getTime()).set(
-                        {'weather': regions_weather[i], 'danger': str(regions_danger[i])})
-                    current_record = next(iter(db.child(Utils.weather_path).child(regions[i]).get().val()))
-                    if current_record is not None and current_record != Utils.getTime():
-                        db.child(Utils.weather_path).child(regions[i]).child(current_record).remove()
+                    print(Texts.updating_weather_for_region % regions[i])
+                    db.child(Constants.weather_path).child(regions[i]).set(
+                        {'weather': weather[i].weather,
+                         'danger': weather[i].danger,
+                         'temperature': weather[i].temperature,
+                         'humidity': weather[i].humidity,
+                         'air': weather[i].air})
                 except AttributeError:
                     pass
     except TypeError:
@@ -82,7 +86,7 @@ firebase = pyrebase.initialize_app(Utils.config)  # initialize firebase with tha
 db = firebase.database()  # get firebase instance object
 my_stream = db.stream(stream_handler)  # create a stream for listening to events (update, remove, set)
 
-timer = Timer(Utils.check_database_interval, checkDataBaseInterval, args=None, kwargs=None)
+timer = Timer(Constants.check_database_interval, checkDataBaseInterval, args=None, kwargs=None)
 timer.start()
 
 # waiting for any key to stop the program and close stream
