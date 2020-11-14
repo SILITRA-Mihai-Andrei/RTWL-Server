@@ -7,71 +7,103 @@ from Data import Data
 from Record import Record
 
 
+# Get current date and time with the format
 def getTime():
+    # Get the date and time from the system
     now = datetime.now()
+    # Format and return
     return now.strftime("%y:%m:%d:%H:%M")
 
 
+# Check if is number
 def isNumber(number):
     try:
+        # Try to cast the string
         int(number)
+        # The cast was successful
         return True
+    # The cast was unsuccessful, the string is not a number
     except ValueError:
         return False
 
 
+# Check record name - it must be as in <getTime> function
 def isRecordNameValid(record):
+    # Split the string with the record separator ':'
     splitted = record.split(':')
+    # There must be 5 values - year:month:day:hour:minute
     if len(splitted) != 5:
+        # Not valid - more or less than 5 values
         return False
+    # There are 5 values - check each one if is a number
     for x in splitted:
+        # If one of the values is not a number - record is not valid
         if not isNumber(x):
             return False
+    # The record is valid
     return True
 
 
+# Check if a record is older than <older_than> value
 def olderThan(record):
+    # Check first if the record is valid
     if isRecordNameValid(record):
+        # Get the record values and split them - year:month:day:hour:minute
         splitted_record = record.split(':')
+        # Get the current date and time from the system and split them
         splitted_date = getTime().split(':')
+        # Check if the year, month and day are the same
         if splitted_record[0] == splitted_date[0] \
                 and splitted_record[1] == splitted_date[1] \
                 and splitted_record[2] == splitted_date[2]:
+            # Change the record hour in minutes and add the record minutes - how many minutes since the record stored
             record_minutes = int(splitted_record[3]) * 60 + int(splitted_record[4])
+            # Change the current hour in minutes and add the current minutes - how many minutes passed today
             minutes = int(splitted_date[3]) * 60 + int(splitted_date[4])
-            if int(minutes) - int(record_minutes) > Constants.older_than * 60:
+            # Check if the difference is bigger than the constant - the record is too old and must be deleted
+            if int(minutes) - int(record_minutes) > Constants.older_than:
                 return True
             else:
                 return False
         else:
+            # The record is way too old - at least 1 day
             return True
+    # The record is not valid and must be deleted
     return True
 
 
-class Utils(object):
-    pass
-
-
+# Take the dictionary from database and store it as two lists of regions and records
 def getDataBaseLists(data, db):
+    # The list of regions - ex: "46 60 26 23" for region of coordinates 46.60 26.23
     regions = []
+    # The list of lists of records - each region can have multiple records
     records = []
     try:
+        # Loop through all data in database dictionary
         for reg, rec in data:
+            # Store the region name in list
             regions.append(reg)
+            # Create a new list for the current region to store its records
             rec_list = []
+            # Loop through records dictionary to get records name and data
             for rec_name, rec_data in rec.items():
                 try:
+                    # Store all records for the current region as Record object
                     rec_list.append(Record(rec_name, Data(rec_data)))
                 except TypeError:
+                    # Something was wrong with the current record - delete it from database
                     db.child(Constants.data_path).child(reg).child(rec_name).remove()
                     return None, None
+            # Store the records list of the current region in the list
             records.append(rec_list)
         return regions, records
     except TypeError:
+        # There was some invalid data in database
         print(Texts.invalid_database_data)
         return None, None
 
 
+# Get the average weather condition from all records of a region
 def calculateWeatherForEachRegion(regions, records):
     if not bool(regions) or not bool(records):
         return None
@@ -98,27 +130,122 @@ def calculateWeatherForEachRegion(regions, records):
                     weather.append(Weather(getWeatherString(getWeatherIndex(average_code)), None,
                                            average_temperature, average_humidity, average_air))
         return weather
-    except TypeError:
-        return None
-    except KeyError:
+    except (TypeError, KeyError):
         return None
 
 
+# Get the index of the weather using the weather code
+# weather code can be 100-499
+# TABLE
+#       00-33           34-66               67-99
+# 1..   Sunny           Sun                 Heat
+# 2..   Soft Rain       Moderate rain       Torrential rain
+# 3..   Soft wind       Moderate wind       Torrential wind
+# 4..   Soft snow fall  Moderate snow fall  Massive snow fall
 def getWeatherIndex(code):
+    # Variable <i> will be the first number
     for i in [1, 2, 3, 4]:
+        # If the code is in the first column of the table (table above the function name)
         if inWeatherCodeRange(code, i * 100, 33 + (i * 100)):
+            # return the first column weather index
             return (i - 1) + ((i - 1) * 2)  # 0, 3, 6, 9
+        # If the code is in the second column of the table
         elif inWeatherCodeRange(code, 34 + (i * 100), 66 + (i * 100)):
+            # return the second column weather index
             return i + ((i - 1) * 2)  # 1, 4, 7, 10
+        # If the code is in the last column of the table
         elif inWeatherCodeRange(code, 67 + (i * 100), 99 + (i * 100)):
+            # return the last column weather index
             return i + 1 + ((i - 1) * 2)  # 2, 5, 7, 11
+    # The weather code is not valid
     return -1
 
 
+# Check if the code is in range
 def inWeatherCodeRange(code, _min, _max):
+    # Example: code = 120
+    # _min = 0  _max = 133
+    # return 0 <= 120 <= 133 => true
     return _min <= code <= _max
 
 
+# Check database data
+def checkDataBaseData(db, records, regions, data):
+    # Loop through all list of list of records - every region has a list of records
+    # The <records> list has list for each region (list of lists)
+    for i in range(len(records)):
+        # Get the current region object from loop
+        region = regions.__getitem__(i)
+        # Store the current record list from loop
+        records_list = records.__getitem__(i)
+        # Loop through all lists from the records list
+        for j in range(len(records_list)):
+            # Get the current record name
+            record = records_list.__getitem__(j).name
+            # Check if is older than <Constants.older_than> value
+            if olderThan(record):
+                # The record is too old
+                # Remove the record from data node in database
+                db.child(Constants.data_path).child(region).child(record).remove()
+                # Check if this record is the last one in list
+                if len(records_list) == 1:
+                    # The region will no longer have records - because the current one was removed
+                    # Delete the region from 'weather' node
+                    db.child(Constants.weather_path).child(region).remove()
+                # Remove the record from dictionary
+                del data[region][record]
+                # Check if the region is None
+                if not bool(data[region]):
+                    # Remove the region from dictionary
+                    del data[region]
+                # Print a message in terminal
+                print(Texts.removing_record % record)
+    # After all data in data dictionary is checked
+    writeRegionWeather(data, db)
+
+
+# Write the calculated weather conditions in 'weather' node
+def writeRegionWeather(data, db):
+    # Get two lists of regions and records from data dictionary
+    regions, records = getDataBaseLists(list(data.items()), db)
+    # Calculate an average weather for each region using its records list
+    weather = calculateWeatherForEachRegion(regions, records)
+    # If the weather is valid and all regions have a valid weather
+    if weather is not None and len(regions) == len(weather):
+        # Loop through all regions
+        for i in range(len(regions)):
+            try:
+                # Write in database - node weather - the region weather
+                db.child(Constants.weather_path).child(regions[i]).set(
+                    {'weather': weather[i].weather,
+                     'temperature': weather[i].temperature,
+                     'humidity': weather[i].humidity,
+                     'air': weather[i].air})
+                # Print a message in terminal
+                print(Texts.updating_weather_for_region % regions[i])
+            except AttributeError:
+                pass
+
+
+# Handle the RecursionError threw when callback stack is full
+def handleRecursionError(timer, my_stream):
+    try:
+        # Call the function again after <check_database_interval> minutes
+        timer.run()
+    except RecursionError:
+        # Exception: when the callback stack is full
+        print("################### RecursionError #######################")
+        # Remove database listener
+        my_stream.close()
+        # Stop call function timer
+        timer.cancel()
+        # Restart database listener
+        my_stream.start()
+        # Call the function again after <check_database_interval> minutes
+        timer.run()
+
+
+# Returns the weather string (name) from the <Texts.py> file using the index of the weather
 def getWeatherString(index):
     if index == 0:
         return Texts.weather_sunny
@@ -145,43 +272,3 @@ def getWeatherString(index):
     elif index == 11:
         return Texts.weather_massive_snow_fall
 
-
-config = {
-    "apiKey": "AIzaSyBaEXgipqQIaBj8GkqDoiYaLcWlaZlreFQ",
-    "authDomain": "real-time-weather-location.firebaseapp.com",
-    "databaseURL": "https://real-time-weather-location.firebaseio.com",
-    "storageBucket": "real-time-weather-location.appspot.com",
-    "type": "service_account",
-    "project_id": "real-time-weather-location",
-    "private_key_id": "92c859f2e8247124879145d7fa46108d84a0dc96",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCdznDpcJ4Q2Xez"
-                   "\npyBbVqENLEqcb61qbdFxmzqUqDGwHEBtFPD3Qc/E/lCGKuRUOQorwtX1B62GQ927\nL"
-                   "+fxLgtYRzzGFY2X85Qx7Fsmiq39Uwig37U83gyV2cZdwZZlkBo+yzjMkgRrGNe/\nReNRQ1AZ4UG5v"
-                   "/DV3gelwgLJFBpHn6XgoyCUYS8u3gaptV7tzB2V6yYJk/dnpX8y\nBBjS1hVAEX"
-                   "/5af4Hnbb4Ye5ANKDqogLHU3SFALztLceDB6kk3I/fZDwAF+wgfVe7\n3/Nv2aT84ghpBTXnn+NCqxwUcHL8c4K"
-                   "+vzlrtHRZDTZWY/bG2rBpaPAVY42v4CyE\nbtgDB41dAgMBAAECggEAPM7PYIymQ/zgbMgyJjAP"
-                   "+BkAmR5JdxDhG4NCxAS5vNBu\nHPpsTgK8kn6ivchqWm/uVOWLd5NhULL3DonLuPpSoc41g2jLumlASip3Bzd6CvsD"
-                   "\ngKYjWtR/igC0OO1/TByGmHrLpLyBWllkzU4bZXVoOMi9gFuPbIHVdZB4bU5DQCSP"
-                   "\nlRIWpJtCSjpo61tuRa6BGE4neYxQrPwM2NY8VdEhMCbM0AANdmQLtR1chhZEZ4n/\ntI+ktk8yavbSyiPdgq9ads2SO"
-                   "+hZ4hZyQ9IN5Zkp/+uC2f62M8nrESn6jmD/Luzj\n7mdwhOyxRxWH2ImFVQEPdVrbpYYabzuVzXPnw1"
-                   "+eWwKBgQDbOAieQY3Rofi81/j2\nqdFJ8CvjBA8f2ZM82vKLMQoHIxg+bCMUvpilyVWJgR2RpYBjNTHjy5lQvHfIvPE2"
-                   "\ndMRqmE1ew3OVjjQk1je+eMzrWPTLMBvG1j6cIIs8PWvnx4KGAabWcYgChuynQivk\ns42Sw4qV9URNwkKB2fzzNC"
-                   "+mawKBgQC4SJjuOiHk9VEoKoYzy1Gg/Robzwx7DMYl\nRyMZWPoQE7K"
-                   "/QA2Yiv4fRI8SJiRZgHCn1QCz6oEmB24EuYVjWYoFO33y+KVQPxYm"
-                   "\nOlry8zJrXCZs6vYNfLOO19QU0DcTvuNDT5gtU9MvN29xOrI3FL3nHFBGJCORj0n5\nN"
-                   "/kyryu9VwKBgFXHOzgRlpistFPQfo6mLEquO7383J4t2Ls7QSTN74qTZO0oCyIW\n4kwc1"
-                   "+eSKivPgslPC1KDXF6HIKffptMUJbdAGSY3fIbMugKf//f79NMyX7cSAAxx\n0NXutgzAS/TJ0Hz3MH1At2Olv/xCnEJFL"
-                   "+R5t0SuUCfNF5EP5zaS+QI5AoGAUikz\n3cqXQABLra+/46m7fB48HLfkJZxdX1NnB68O1koiAHirVx5pDEHB0+KjhC/qijlC"
-                   "\nNfTQncbkO0EHgnLyQUDz93b6JVvrISIVWIorKYiNLTRYfUzitUXurVTjqW8K3gDH"
-                   "\npTXhSwTZL89uk3Yw8LBD7fHA1e3fmjhlZz6ILsMCgYEAt+fxqwf4Zf8YNi2+fM9o\nXFz"
-                   "+gKJ8SIDcBF5lynsYAYSaqGnVJvteDXkxhrIXDaPaETTeIgMkFyzMymcEm4cI"
-                   "\njFx67iIi4K5YQoY8ZS3NnlgXarPRJUtkV0F0GW4k9DLyIytovX7tBKrh+E7F3I0/\nOdgs2rv8C7w/dvCP0VlFcy4=\n"
-                   "-----END PRIVATE KEY-----\n",
-    "client_email": "real-time-weather-location@appspot.gserviceaccount.com",
-    "client_id": "103280618895051741441",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/real-time-weather-location%40appspot"
-                            ".gserviceaccount.com "
-}
