@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import Constants
+import Machine_learning
 import Texts
 from Weather import Weather
 from Data import Data
@@ -108,28 +109,12 @@ def calculateWeatherForEachRegion(regions, records):
     if not bool(regions) or not bool(records):
         return None
     try:
-        weather = []
-        for i in range(len(regions)):
-            average_code = 0
-            average_temperature = 0
-            average_humidity = 0
-            average_air = 0
-            length = len(records.__getitem__(i))
-            for j in range(length):
-                data = records.__getitem__(i).__getitem__(j).data
-                average_code += data.code
-                average_temperature += data.temperature
-                average_humidity += data.humidity
-                average_air += data.air
-            if length != 0:
-                average_code = average_code / length
-                average_temperature = average_temperature / length
-                average_humidity = average_humidity / length
-                average_air = average_air / length
-                if inWeatherCodeRange(average_code, Constants.min_weather_code, Constants.max_weather_code):
-                    weather.append(Weather(getWeatherString(getWeatherIndex(average_code)), None,
-                                           average_temperature, average_humidity, average_air))
-        return weather
+        weather_list = []
+        for index in range(len(regions)):
+            weather = Machine_learning.getWeatherForRegion(records[index])
+            if weather is not None:
+                weather_list.append(weather)
+        return weather_list
     except (TypeError, KeyError):
         return None
 
@@ -137,28 +122,18 @@ def calculateWeatherForEachRegion(regions, records):
 # Get the index of the weather using the weather code
 # weather code can be 100-499
 # TABLE
-#       00-33           34-66               67-99
+#       00-33           33-66               66-99
 # 1..   Sunny           Sun                 Heat
 # 2..   Soft Rain       Moderate rain       Torrential rain
 # 3..   Soft wind       Moderate wind       Torrential wind
 # 4..   Soft snow fall  Moderate snow fall  Massive snow fall
 def getWeatherIndex(code):
-    # Variable <i> will be the first number
-    for i in [1, 2, 3, 4]:
-        # If the code is in the first column of the table (table above the function name)
-        if inWeatherCodeRange(code, i * 100, 33 + (i * 100)):
-            # return the first column weather index
-            return (i - 1) + ((i - 1) * 2)  # 0, 3, 6, 9
-        # If the code is in the second column of the table
-        elif inWeatherCodeRange(code, 34 + (i * 100), 66 + (i * 100)):
-            # return the second column weather index
-            return i + ((i - 1) * 2)  # 1, 4, 7, 10
-        # If the code is in the last column of the table
-        elif inWeatherCodeRange(code, 67 + (i * 100), 99 + (i * 100)):
-            # return the last column weather index
-            return i + 1 + ((i - 1) * 2)  # 2, 5, 7, 11
-    # The weather code is not valid
-    return -1
+    index = -1
+    for i in [100, 200, 300, 400]:
+        for j in [0, 33, 66]:
+            if inWeatherCodeRange(code, i+j, i+j+33):
+                return index + 1
+            index += 1
 
 
 # Check if the code is in range
@@ -173,7 +148,7 @@ def inWeatherCodeRange(code, _min, _max):
 def checkDataBaseData(db, records, regions, data):
     # Loop through all list of list of records - every region has a list of records
     # The <records> list has list for each region (list of lists)
-    for i in range(len(records)):
+    for i in range(len(regions)):
         # Get the current region object from loop
         region = regions.__getitem__(i)
         # Store the current record list from loop
@@ -192,14 +167,21 @@ def checkDataBaseData(db, records, regions, data):
                     # The region will no longer have records - because the current one was removed
                     # Delete the region from 'weather' node
                     db.child(Constants.weather_path).child(region).remove()
-                # Remove the record from dictionary
-                del data[region][record]
-                # Check if the region is None
-                if not bool(data[region]):
-                    # Remove the region from dictionary
-                    del data[region]
+                    # Remove the record from dictionary
+                    del data[region][record]
+                    # Remove the record from records list
+                    records_list.insert(j, None)
                 # Print a message in terminal
                 print(Texts.removing_record % record)
+        # Check if the region is None
+        if not bool(data[region]):
+            # Remove the region from dictionary
+            del data[region]
+            regions[i] = None
+    new_regions = []
+    for x in regions:
+        if x is not None:
+            new_regions.append(x)
     # After all data in data dictionary is checked
     writeRegionWeather(data, db)
 
@@ -220,7 +202,8 @@ def writeRegionWeather(data, db):
                     {'weather': weather[i].weather,
                      'temperature': weather[i].temperature,
                      'humidity': weather[i].humidity,
-                     'air': weather[i].air})
+                     'air': weather[i].air,
+                     'danger': 'None'})
                 # Print a message in terminal
                 print(Texts.updating_weather_for_region % regions[i])
             except AttributeError:
@@ -271,4 +254,3 @@ def getWeatherString(index):
         return Texts.weather_moderate_snow_fall
     elif index == 11:
         return Texts.weather_massive_snow_fall
-
