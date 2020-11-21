@@ -11,6 +11,6 @@ class Weather:
     def __init__(self, weather, danger, temperature, humidity, air):
         self.weather = weather
         self.danger = danger
-        self.temperature = temperature
-        self.humidity = humidity
-        self.air = air
+        self.temperature = round(temperature, 1)
+        self.humidity = round(humidity, 1)
+        self.air = round(air, 0)

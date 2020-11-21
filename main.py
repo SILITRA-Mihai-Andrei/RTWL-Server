@@ -74,10 +74,14 @@ firebase = pyrebase.initialize_app(Constants.config)  # initialize firebase with
 db = firebase.database()  # get firebase instance object
 my_stream = db.stream(stream_handler)  # create a stream for listening to events (update, remove, set)
 
+db.child(Constants.data_path).set(Constants.data_test)
+
+# Create timer - call function (parameter 2) after a time (parameter 1)
 timer = Timer(Constants.check_database_interval, checkDataBaseInterval, args=None, kwargs=None)
+# Start the timer
 timer.start()
 
-# waiting for any key to stop the program and close stream
+# Waiting for any key to stop the program and close stream
 string = input("Press any key to end!\n")
 if len(string) > 0 or string == '':
     my_stream.close()

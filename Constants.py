@@ -1,5 +1,5 @@
-check_database_interval = 5 # How often to check the database in seconds
-older_than = 4  # Record older than <minutes>
+check_database_interval = 5  # How often to check the database in seconds
+older_than = 60  # Record older than <minutes>
 
 min_weather_code = 100
 max_weather_code = 499
@@ -14,6 +14,19 @@ max_air_quality = 100
 data_path = 'data'
 # Weather path for weather in Firebase database - where the regions with their calculated weather are stored
 weather_path = 'weather'
+
+# MACHINE LEARNING
+# Machine learning .CVS file
+cvs_url = ''
+# Titles for data frame
+dataframe_titles = ['date', 'weather_code', 'temperature', 'humidity', 'air_quality']
+# Data frame dictionary
+dataframe_titles_dictionary = {dataframe_titles[0]: [],
+                               dataframe_titles[1]: [],
+                               dataframe_titles[2]: [],
+                               dataframe_titles[3]: [],
+                               dataframe_titles[4]: []}
+
 
 # Firebase configuration
 config = {
@@ -55,3 +68,63 @@ config = {
     "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/real-time-weather-location%40appspot"
                             ".gserviceaccount.com "
 }
+
+dataframe_test = {
+    'date':
+        ['20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
+         '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
+         '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
+         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
+         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
+         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
+         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27'],
+    'weather_code':
+        [100, 102, 104, 106, 108,
+         110, 112, 114, 116, 118,
+         121, 123, 127, 130, 133,
+         166, 170, 180, 199,
+         200, 233, 266, 299,
+         300, 333, 366, 399,
+         400, 433, 466, 499],
+    'temperature':
+        [15, 15.5, 16, 16.7, 17.2,
+         17.8, 18.3, 18.9, 19.4, 20,
+         20.7, 21.3, 22.5, 23.8, 24.8,
+         25.6, 27.3, 28.8, 33,
+         18, 15, 12, 8,
+         218, 15, 11, 9,
+         5, 2, -2, -10],
+    'humidity':
+        [45, 43.4, 41.7, 40.3, 39.5,
+         36, 34.6, 33.1, 31.9, 30.5,
+         29.4, 28.1, 26.8, 24, 20,
+         40, 30, 22, 12,
+         80, 85, 90, 98,
+         50, 55, 66, 81,
+         82, 84, 92, 99],
+    'air_quality':
+        [5, 11, 8, 9, 7,
+         12, 11, 10, 11, 12,
+         13, 13, 12, 12, 12,
+         8, 8, 9, 8,
+         10, 11, 10, 10,
+         7, 6, 8, 5,
+         5, 5, 5, 5]
+}
+
+data_test = {'47 63 26 24': {'20:11:21:14:00': {'air': 8, 'code': 480, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 25': {'20:11:16:13:57': {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 26': {'20:11:16:13:57': {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 27': {'20:11:16:13:57': {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 20': {'20:11:21:15:10': {'air': 8, 'code': 100, 'humidity': 40, 'temperature': 15},
+                             '20:11:21:15:11': {'air': 8, 'code': 105, 'humidity': 37, 'temperature': 16},
+                             '20:11:21:15:12': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             '20:11:21:15:13': {'air': 9, 'code': 113, 'humidity': 33, 'temperature': 19}},
+             '47 64 26 21': {'20:11:16:13:56': {'air': 8, 'code': 150, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 22': {'20:11:16:13:57': {'air': 8, 'code': 180, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 23': {'20:11:16:13:57': {'air': 8, 'code': 200, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 24': {'20:11:16:13:57': {'air': 8, 'code': 250, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 25': {'20:11:16:13:57': {'air': 8, 'code': 280, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 26': {'20:11:16:13:57': {'air': 8, 'code': 300, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 27': {'20:11:16:13:57': {'air': 8, 'code': 350, 'humidity': 28, 'temperature': 15}}
+             }
