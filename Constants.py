@@ -14,8 +14,12 @@ max_air_quality = 100
 data_path = 'data'
 # Weather path for weather in Firebase database - where the regions with their calculated weather are stored
 weather_path = 'weather'
+# Danger path for Firebase database - where the regions with their danger are stored
+danger_path = 'danger'
 
 # MACHINE LEARNING
+# Percent of records to take from the end o a dataframe
+records_count_percent = 0.5
 # Machine learning .CVS file
 cvs_url = ''
 # Titles for data frame
@@ -71,7 +75,7 @@ config = {
 
 dataframe_test = {
     'date':
-        ['20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
+        ['20:11:16:16:30', '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
          '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
          '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
          '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
@@ -79,7 +83,7 @@ dataframe_test = {
          '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
          '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27'],
     'weather_code':
-        [100, 102, 104, 106, 108,
+        [100, 100, 102, 104, 106, 108,
          110, 112, 114, 116, 118,
          121, 123, 127, 130, 133,
          166, 170, 180, 199,
@@ -87,7 +91,7 @@ dataframe_test = {
          300, 333, 366, 399,
          400, 433, 466, 499],
     'temperature':
-        [15, 15.5, 16, 16.7, 17.2,
+        [15, 15, 15.5, 16, 16.7, 17.2,
          17.8, 18.3, 18.9, 19.4, 20,
          20.7, 21.3, 22.5, 23.8, 24.8,
          25.6, 27.3, 28.8, 33,
@@ -95,7 +99,7 @@ dataframe_test = {
          218, 15, 11, 9,
          5, 2, -2, -10],
     'humidity':
-        [45, 43.4, 41.7, 40.3, 39.5,
+        [45, 44, 43.4, 41.7, 40.3, 39.5,
          36, 34.6, 33.1, 31.9, 30.5,
          29.4, 28.1, 26.8, 24, 20,
          40, 30, 22, 12,
@@ -103,7 +107,7 @@ dataframe_test = {
          50, 55, 66, 81,
          82, 84, 92, 99],
     'air_quality':
-        [5, 11, 8, 9, 7,
+        [5, 5, 11, 8, 9, 7,
          12, 11, 10, 11, 12,
          13, 13, 12, 12, 12,
          8, 8, 9, 8,
@@ -112,19 +116,21 @@ dataframe_test = {
          5, 5, 5, 5]
 }
 
-data_test = {'47 63 26 24': {'20:11:21:14:00': {'air': 8, 'code': 480, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 25': {'20:11:16:13:57': {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 26': {'20:11:16:13:57': {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 27': {'20:11:16:13:57': {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 20': {'20:11:21:15:10': {'air': 8, 'code': 100, 'humidity': 40, 'temperature': 15},
-                             '20:11:21:15:11': {'air': 8, 'code': 105, 'humidity': 37, 'temperature': 16},
-                             '20:11:21:15:12': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             '20:11:21:15:13': {'air': 9, 'code': 113, 'humidity': 33, 'temperature': 19}},
-             '47 64 26 21': {'20:11:16:13:56': {'air': 8, 'code': 150, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 22': {'20:11:16:13:57': {'air': 8, 'code': 180, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 23': {'20:11:16:13:57': {'air': 8, 'code': 200, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 24': {'20:11:16:13:57': {'air': 8, 'code': 250, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 25': {'20:11:16:13:57': {'air': 8, 'code': 280, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 26': {'20:11:16:13:57': {'air': 8, 'code': 300, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 27': {'20:11:16:13:57': {'air': 8, 'code': 350, 'humidity': 28, 'temperature': 15}}
+day = '20:11:28:'
+hour = '17:'
+data_test = {'47 63 26 24': {day+hour+'11': {'air': 8, 'code': 480, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 25': {day+hour+'11': {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 26': {day+hour+'11': {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 27': {day+hour+'11': {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 20': {day+hour+'11': {'air': 8, 'code': 100, 'humidity': 40, 'temperature': 15},
+                             day+hour+'16': {'air': 8, 'code': 105, 'humidity': 37, 'temperature': 16},
+                             day+hour+'15': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             day+hour+'21': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             day+hour+'22': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             day+hour+'24': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             day+hour+'25': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             day+hour+'26': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             day+hour+'27': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             day+hour+'23': {'air': 9, 'code': 141, 'humidity': 35, 'temperature': 17},
+                             day+hour+'14': {'air': 9, 'code': 143, 'humidity': 33, 'temperature': 19}}
              }

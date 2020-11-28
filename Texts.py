@@ -2,7 +2,8 @@ default_name = 'unknown'
 removing_record = 'Removing old record %s.'
 invalid_database_data = 'Invalid Database data'
 updating_weather_for_region = 'Updating weather for region %s.'
-region_deleted_weather_delete = "Region %s was deleted. Removing its weather data."
+region_deleted = "Region %s was deleted."
+region_deleted_delete_weather_data = "Region %s has no more records. Delete its weather data."
 weather_sunny = 'Sunny'
 weather_sun = 'Sun'
 weather_heat = 'Heat'
@@ -19,3 +20,4 @@ weather_massive_snow_fall = 'Massive snow fall'
 checking_database = '\nChecking database content - %s\n' \
     '------------------------------------'
 string_nothing_to_do = 'Nothing to do.'
+string_done = 'Done.'

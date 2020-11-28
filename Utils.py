@@ -3,7 +3,6 @@ from datetime import datetime
 import Constants
 import Machine_learning
 import Texts
-from Weather import Weather
 from Data import Data
 from Record import Record
 
@@ -115,7 +114,8 @@ def calculateWeatherForEachRegion(regions, records):
             if weather is not None:
                 weather_list.append(weather)
         return weather_list
-    except (TypeError, KeyError):
+    except (TypeError, KeyError) as err:
+        print(err)
         return None
 
 
@@ -162,25 +162,33 @@ def checkDataBaseData(db, records, regions, data):
                 # The record is too old
                 # Remove the record from data node in database
                 db.child(Constants.data_path).child(region).child(record).remove()
+                # Remove the record from dictionary
+                del data[region][record]
+                # Add a None object in the current position of the record
+                records_list.insert(j, None)
+                # Remove the record from records list - remaining a None object instead
+                records_list.remove(records_list.__getitem__(j+1))
+                # Print a message in terminal for removing the current record
+                print(Texts.removing_record % record)
                 # Check if this record is the last one in list
-                if len(records_list) == 1:
+                if len(records_list) == j+1:
                     # The region will no longer have records - because the current one was removed
+                    print(Texts.region_deleted % region)
                     # Delete the region from 'weather' node
                     db.child(Constants.weather_path).child(region).remove()
-                    # Remove the record from dictionary
-                    del data[region][record]
-                    # Remove the record from records list
-                    records_list.insert(j, None)
-                # Print a message in terminal
-                print(Texts.removing_record % record)
+                    print(Texts.region_deleted_delete_weather_data % region)
         # Check if the region is None
         if not bool(data[region]):
             # Remove the region from dictionary
             del data[region]
+            # Put in regions list a None object instead of region
             regions[i] = None
+    # Create a new list to store the remaining regions
     new_regions = []
     for x in regions:
+        # For each regions that is not None object
         if x is not None:
+            # Put in the new list the region
             new_regions.append(x)
     # After all data in data dictionary is checked
     writeRegionWeather(data, db)
@@ -202,12 +210,13 @@ def writeRegionWeather(data, db):
                     {'weather': weather[i].weather,
                      'temperature': weather[i].temperature,
                      'humidity': weather[i].humidity,
-                     'air': weather[i].air,
-                     'danger': 'None'})
+                     'air': weather[i].air})
                 # Print a message in terminal
                 print(Texts.updating_weather_for_region % regions[i])
-            except AttributeError:
-                pass
+                db.child(Constants.danger_path).child(regions[i]).set(
+                    {'danger_code': None})
+            except AttributeError as err:
+                print(err)
 
 
 # Handle the RecursionError threw when callback stack is full
