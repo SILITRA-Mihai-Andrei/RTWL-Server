@@ -15,28 +15,15 @@ def stream_handler(message):
     event = message["event"]
     data = message["data"]
     path = message["path"]
+    split_path = path.split('/')
     # Check if a region was deleted from 'data' node in database (event = put and data is None)
-    if event == 'put' and data is None and Constants.data_path in path:
+    if event == 'put' and data is None and Constants.data_path in path and len(split_path) == 3:
         # If region was deleted - delete the region from 'weather' node too - the region has no longer weather data
         db.child(path.replace(Constants.data_path, Constants.weather_path)).remove()
         # Print a message on terminal
-        print(Texts.region_deleted_weather_delete % path.split('/')[1])
+        print(Texts.region_deleted_delete_weather_data % split_path[2])
     # No new data
     if data is None:
-        return
-    try:
-        # result = data[Utils.data_path].items()
-        # print(Utils.getDataBaseLists(result, db))
-        return
-    except (KeyError, TypeError):
-        pass
-    try:
-        # print(data)
-        # print(path.split("/"))
-        # splitted = path.split("/")
-        # db.child(Utils.data_path).child(splitted[2]).child(splitted[3]).update({"code": 0})
-        return
-    except KeyError:
         return
 
 
@@ -65,6 +52,7 @@ def checkDataBaseInterval():
     # If something goes wrong
     except (TypeError, KeyError):
         pass  # Do nothing
+    print(Texts.string_done)
     # Call the function again after <check_database_interval> minutes
     timer.run()
 
