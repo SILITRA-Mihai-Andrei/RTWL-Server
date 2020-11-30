@@ -10,6 +10,10 @@ max_humidity = 100
 min_air_quality = 4  # values under this might be produced even with damaged sensor
 max_air_quality = 100
 
+record_name_format = '%y:%m:%d:%H:%M'
+
+return_value_index_of_weather_not_found = -1
+
 # Data path for data in FireBase database - where the regions with their records are stored
 data_path = 'data'
 # Weather path for weather in Firebase database - where the regions with their calculated weather are stored

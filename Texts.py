@@ -1,16 +1,20 @@
 default_name = 'unknown'
-weather_sunny = 'Sunny'
-weather_sun = 'Sun'
-weather_heat = 'Heat'
-weather_soft_rain = 'Soft rain'
-weather_moderate_rain = 'Moderate rain'
-weather_torrential_rain = 'Torrential rain'
-weather_soft_wind = 'Soft wind'
-weather_moderate_wind = 'Moderate wind'
-weather_torrential_wind = 'Torrential wind'
-weather_soft_snow_fall = 'Soft snow fall'
-weather_moderate_snow_fall = 'Moderate snow fall'
-weather_massive_snow_fall = 'Massive snow fall'
+
+weather_titles = {
+    -1: 'Invalid weather',
+    0: 'Sunny',
+    1: 'Sun',
+    2: 'Heat',
+    3: 'Soft rain',
+    4: 'Moderate rain',
+    5: 'Torrential rain',
+    6: 'Soft wind',
+    7: 'Moderate wind',
+    8: 'Torrential wind',
+    9: 'Soft snow fall',
+    10: 'Moderate snow fall',
+    11: 'Massive snow fall'
+}
 
 # Messages for firebase events
 checking_database = '\nChecking database content - %s\n' \

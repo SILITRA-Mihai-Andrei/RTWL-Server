@@ -7,16 +7,25 @@ from Data import Data
 from Record import Record
 
 
-# Get current date and time with the format
-def getTime():
+def getTime(form=Constants.record_name_format):
+    """
+    Get current date and time with the format= @form.
+
+    :return: datetime.datetime object with the current date and time in specified format.
+    """
     # Get the date and time from the system
     now = datetime.now()
     # Format and return
-    return now.strftime("%y:%m:%d:%H:%M")
+    return now.strftime(form)
 
 
-# Check if is number
 def isNumber(number):
+    """
+    Check if is number.
+
+    :param number: The number in string format.
+    :return: Boolean -> Is @number a number? True : False
+    """
     try:
         # Try to cast the string
         int(number)
@@ -27,8 +36,13 @@ def isNumber(number):
         return False
 
 
-# Check record name - it must be as in <getTime> function
 def isRecordNameValid(record):
+    """
+    Check record name. The record name must be the same as getTime() function return.
+
+    :param record: The record name.
+    :return: Boolean -> Is the records name valid? True : False
+    """
     # Split the string with the record separator ':'
     splitted = record.split(':')
     # There must be 5 values - year:month:day:hour:minute
@@ -44,8 +58,13 @@ def isRecordNameValid(record):
     return True
 
 
-# Check if a record is older than <older_than> value
 def olderThan(record):
+    """
+    Check if a record is older than <Constants.older_than> value.
+
+    :param record: The record name, which is the date and time when was wrote.
+    :return: Boolean -> Is the record older than Constants.older_than ? True : False
+    """
     # Check first if the record is valid
     if isRecordNameValid(record):
         # Get the record values and split them - year:month:day:hour:minute
@@ -72,8 +91,16 @@ def olderThan(record):
     return True
 
 
-# Take the dictionary from database and store it as two lists of regions and records
 def getDataBaseLists(data, db):
+    """
+    Take the dictionary from database and return it as two lists of @regions and @records.
+    The @records will be a list of lists. Each region in @regions list will have a list of records in @records list.
+
+    :param data: The firebase data dictionary. In this dictionary is received all database data.
+    :param db: The Firebase.DataBase object. The firebase instance, used to manipulate data in database.
+    :return: List(String), List(List(Record)) -> Each region in @regions list will have a list of records in @records
+    list.
+    """
     # The list of regions - ex: "46 60 26 23" for region of coordinates 46.60 26.23
     regions = []
     # The list of lists of records - each region can have multiple records
@@ -103,8 +130,19 @@ def getDataBaseLists(data, db):
         return None, None
 
 
-# Get the average weather condition from all records of a region
 def calculateWeatherForEachRegion(regions, records):
+    """
+    Get the average weather condition from all records of a region.
+    A region is a string (its name) representing the coordinates of it.
+
+    :Examples:
+    - For 47.602151 26.230123, the region name will be '47 60 26 23'.
+    - For 45.392151 20.210123, the region name will be '45 39 20 21'.
+
+    :param regions: The list of regions.
+    :param records:
+    :return:
+    """
     if not bool(regions) or not bool(records):
         return None, None
     try:
@@ -122,33 +160,62 @@ def calculateWeatherForEachRegion(regions, records):
         return None, None
 
 
-# Get the index of the weather using the weather code
-# weather code can be 100-499
-# TABLE
-#       00-33           33-66               66-99
-# 1..   Sunny           Sun                 Heat
-# 2..   Soft Rain       Moderate rain       Torrential rain
-# 3..   Soft wind       Moderate wind       Torrential wind
-# 4..   Soft snow fall  Moderate snow fall  Massive snow fall
-def getWeatherIndex(code):
-    index = -1
+def getWeatherIndex(code, return_if_none=Constants.return_value_index_of_weather_not_found):
+    """
+    Get the index of the weather using the weather code. Weather code can be from 100 to 499.
+
+    :Examples:
+
+    TABLE   \n
+    Code - 00-33 _____________ 33-66 _____________ 66-99                \n
+    1.. ____ Sunny _____________ Sun _______________ Heat               \n
+    2.. ____ Soft Rain __________ Moderate rain _____ Torrential rain   \n
+    3.. ____ Soft wind __________ Moderate wind ____ Torrential wind    \n
+    4.. ____ Soft snow fall ______ Mod. snowfall _____ Massive snowfall \n
+
+    :param code: The weather code. The one to get the index for.
+    :param return_if_none: Is the return of the function if the weather code index is not found.
+    :return: Integer -> The index of the weather code if was found.
+    """
+    # Start the index with 0
+    index = 0
     for i in [100, 200, 300, 400]:
         for j in [0, 33, 66]:
             if inWeatherCodeRange(code, i+j, i+j+33):
-                return index + 1
+                return index
             index += 1
+    return return_if_none
 
 
-# Check if the code is in range
 def inWeatherCodeRange(code, _min, _max):
+    """
+    Check if the code is in range.
+
+    :param code: The number to check if is in range.
+    :param _min: The minimum value.
+    :param _max: The maximum value.
+    :return: Boolean -> _min <= code <= _max
+    """
     # Example: code = 120
     # _min = 0  _max = 133
     # return 0 <= 120 <= 133 => true
     return _min <= code <= _max
 
 
-# Check database data
 def checkDataBaseData(db, records, regions, data):
+    """
+    Called every <Constants.check_database_interval> to check the database data.
+
+    - Remove invalid data.
+    - Write the calculated data.
+    - Update new data.
+
+    :param db: The FireBase.DataBase object used to manipulate data in database.
+    :param records: The records list, which is a list of lists of records for each region.
+    :param regions: The regions list, which is a list of strings that are the names of regions.
+    :param data: The data dictionary received from database.
+    :return: Nothing.
+    """
     # Loop through all list of list of records - every region has a list of records
     # The <records> list has list for each region (list of lists)
     for i in range(len(regions)):
@@ -197,8 +264,18 @@ def checkDataBaseData(db, records, regions, data):
     writeRegionWeather(data, db)
 
 
-# Write the calculated weather conditions in 'weather' node
 def writeRegionWeather(data, db):
+    """
+    Write the calculated weather conditions in database:
+
+    - 'weather' node -- the calculated weather for each region
+    - 'dangers' node -- for regions where there are dangers
+    - 'predicts' node -- machine learning predictions for each region
+
+    :param data: Dictionary containing the data received from database with old records removed.
+    :param db: The FireBase.DataBase object for manipulating the database.
+    :return: Nothing.
+    """
     # Get two lists of regions and records from data dictionary
     regions, records = getDataBaseLists(list(data.items()), db)
     # Calculate an average weather for each region using its records list
@@ -232,8 +309,17 @@ def writeRegionWeather(data, db):
                 print(err)
 
 
-# Handle the RecursionError threw when callback stack is full
-def handleRecursionError(timer, my_stream):
+def handleRecursionError(timer, stream):
+    """
+    Handle the RecursionError threw when callback stack is full, after many callback.
+
+    :param timer: threading.Timer object that will recall the checkDataBaseInterval() function again and again,
+        after each Constants.check_database_interval seconds. This will throw RecursionError exception, which is handled
+        here.
+    :param stream: The database stream, which is listening for events in database (write, update, remove). In this
+        function it will be closed and restarted to clean the stack.
+    :return: Nothing.
+    """
     try:
         # Call the function again after <check_database_interval> minutes
         timer.run()
@@ -241,38 +327,27 @@ def handleRecursionError(timer, my_stream):
         # Exception: when the callback stack is full
         print("################### RecursionError #######################")
         # Remove database listener
-        my_stream.close()
+        stream.close()
         # Stop call function timer
         timer.cancel()
         # Restart database listener
-        my_stream.start()
+        stream.start()
         # Call the function again after <check_database_interval> minutes
         timer.run()
 
 
-# Returns the weather string (name) from the <Texts.py> file using the index of the weather
 def getWeatherString(index):
-    if index == 0:
-        return Texts.weather_sunny
-    elif index == 1:
-        return Texts.weather_sun
-    elif index == 2:
-        return Texts.weather_heat
-    elif index == 3:
-        return Texts.weather_soft_rain
-    elif index == 4:
-        return Texts.weather_moderate_rain
-    elif index == 5:
-        return Texts.weather_torrential_rain
-    elif index == 6:
-        return Texts.weather_soft_wind
-    elif index == 7:
-        return Texts.weather_moderate_wind
-    elif index == 8:
-        return Texts.weather_torrential_wind
-    elif index == 9:
-        return Texts.weather_soft_snow_fall
-    elif index == 10:
-        return Texts.weather_moderate_snow_fall
-    elif index == 11:
-        return Texts.weather_massive_snow_fall
+    """
+    Returns the weather string (name) from the <Texts.py> file using the index of the weather. The weather titles are
+    wrote in a dictionary, where the keys are the index.
+
+    Example:
+
+    - index = -1 -> Texts.weather_titles[-1] -> Invalid weather
+    - index = 0 -> Texts.weather_titles[0] -> Sunny
+    - index = 11 -> Texts.weather_titles[11] -> Massive snow fall
+
+    :param index: The index of the weather.
+    :return: String -> The weather title.
+    """
+    return Texts.weather_titles[index]
