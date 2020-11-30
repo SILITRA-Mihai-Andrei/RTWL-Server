@@ -5,6 +5,7 @@
 # 2..   Soft Rain       Moderate rain       Torrential rain
 # 3..   Soft wind       Moderate wind       Torrential wind
 # 4..   Soft snow fall  Moderate snow fall  Massive snow fall
+
 import copy
 
 import Constants
@@ -23,15 +24,28 @@ from sklearn import linear_model
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-# Return date and time with <form> format
 def getDateTime(datetime, form='%y:%m:%d:%H:%M'):
+    """
+    Return date and time with <form> format.
+
+    :parameter datetime: A string with date and time, having the format=form
+    :parameter form: The format in which the datetime string comes
+    :return: pandas.to_datetime(datetime, format=form)
+    """
     return pandas.to_datetime(datetime, format=form)
 
 
-# Sort all dataframe (tables) per weather code
 def sortByWeatherCode(data_frame):
+    """
+    Sort all dataframe (which are tables) per weather type, using the weather_code.
+
+    Example: All weather codes in range 100:133 (specific for sunny weather) will be stored in a list and so on.
+
+    :parameter data_frame: pandas.DataFrame object. A sort of table with column=Constants.dataframe_titles
+    :return: list(pandas.DataFrame), list(int)
+    """
     # Create a list of tables (dataframe) for each weather code range (see the table in this file header)
-    weather_list = []
+    tables = []
     # Store the number of tables with records
     counter = 0
     # First iteration is for weather type (ex: sun, rain, wind or snowfall)
@@ -46,12 +60,22 @@ def sortByWeatherCode(data_frame):
             if not table_list.empty:
                 counter += 1
             # Add in list a table with records for each weather intensity
-            weather_list.append(table_list)
-    return weather_list, counter
+            tables.append(table_list)
+    return tables, counter
 
 
-# Predict values by using a dataframe and some columns of it
 def predict(dataframe, for_prediction, values, to_predict):
+    """
+    Predict values by using a dataframe and some columns of it.
+
+    :param dataframe: The table source for records
+    :param for_prediction: List of strings to select the columns from <dataframe> used for prediction.
+        List with the names of columns from @dataframe that are used in prediction.
+    :param values: List of values, according to @for_prediction list, that are used for prediction
+    :param to_predict: List of strings to select the columns from @dataframe to be predicted.
+        List with names of columns from @dataframe that are used to be predicted.
+    :return: List(float) - predicted values, selected by @to_predict list, using the @for_prediction list.
+    """
     # Get the columns data used for prediction
     columns_for_prediction = dataframe[for_prediction]
     # Select the columns to predict
@@ -64,8 +88,15 @@ def predict(dataframe, for_prediction, values, to_predict):
     return regression.predict([values])
 
 
-# Calculate the region weather using its records and machine learning
 def getWeatherForRegion(records):
+    """
+    Calculate the region weather using its records and machine learning.
+
+    :param records: List of Record objects. A list of Record objects corresponds to a region. A region has many
+        records used to calculate the weather inside it.
+    :return: Weather, int -> A Weather object corresponding to the average weather calculated and an int value
+        corresponding to the average weather_code
+    """
     # Set empty dictionary with empty lists for each column
     weather_dataframe_dict = copy.deepcopy(Constants.dataframe_titles_dictionary)
     # Loop through all records
@@ -108,9 +139,15 @@ def getWeatherForRegion(records):
     return None, None
 
 
-# Get the danger for a region, using its weather data
-# Ex: If <weather_code = 199>, in the region is too hot
 def getDangerRegion(weather_code):
+    """
+    Get the danger for a region, using its weather data.
+
+    Example: If {weather_code = 199}, in the region is too hot.
+
+    :param weather_code: Integer representing the average weather code used to determine if there is any danger.
+    :return: String -> The string that mush be displayed on user interface for corresponding danger.
+    """
     # Loop through all weather types
     for i in [100, 200, 300, 400]:
         # Store the weather_code limits dictionary - where all danger limits are stored for each weather type
@@ -130,12 +167,26 @@ def getDangerRegion(weather_code):
 
 
 def getSliceOfDataFrame(dataframe, percent):
+    """
+    Get a portion of @dataframe from the end. The records in @dataframe is ordered and the last records represents
+        the newest records. The first records representes the old records. That's why this function returns the records
+        from end.
+
+    :Examples:
+
+    - If the length=10 and percent=0.5 than records_count = 5 - the function will return 5 records from the end
+    - If the length=15 and percent=0.75 than records_count = 11 - the function will return 11 records from the end
+    - If the length=1 and percent=0.49 than records_count = 0, but the function will return 1 record from the end
+
+    :param dataframe: The dataframe used to trim records.
+    :param percent: (from 0 to 1.0) The percent of @dataframe records to return.
+    """
     # Store the length of the dataframe (number of tables)
     length = len(dataframe)
     # Store the number of records to return
     # Calculate how many records to return from the end of table
     # Ex: If the length=10 and percent=0.5 than records_count = 5 - the function will return 5 records from the end
-    records_count = int(length - (length * percent))
+    records_count = int(length * percent)
     # If there are more than one valid record
     if records_count > 1:
         # Add one more record to return - 50% + 1
@@ -144,9 +195,22 @@ def getSliceOfDataFrame(dataframe, percent):
     return dataframe.tail(records_count)
 
 
-# Check if a region has records with different weather type (ex: sun and rain)
-# This function has a recursion that helps in removing old data until a single weather type data remains
 def checkMultipleWeather(dataframe):
+    """
+    Check if a region has records with different weather type (ex: sun and rain).
+    This function has a recursion that helps in removing old data until a single weather type data remains.
+
+    Examples:
+
+    - If a region has 10 records with sun and 5 records with rain, this function will call itself until only the sun
+    records will remain.
+
+    - If a region has 10 records with sun and 10 records with rain, this function will call itself until no records will
+    remain.
+
+    :param dataframe: The pandas.DataFrame object used to sort records by weather code.
+    :return: pandas.DataFrame object containing the records with only one weather (the dominating one).
+    """
     # Get the list of tables depending on weather type (see the table in this file header) and how many non-empty tables
     weather_list, counter = sortByWeatherCode(dataframe)
     # There are no tables with records
@@ -183,9 +247,15 @@ def checkMultipleWeather(dataframe):
         return None
 
 
-# Check if the <frame> exists in <dataframe> with the same values, except <air_quality> value
-# This function is used to check the dataframe to avoid duplication
 def existInDataframe(dataframe, frame):
+    """
+    Check if the @frame exists in @dataframe with the same values, except @air_quality value.
+    This function is used to check the @dataframe to avoid duplication of @frame.
+
+    :param dataframe: The pandas.DataFrame object where are stored all records.
+    :param frame: The pandas.DataFrame object that must be inserted in @dataframe.
+    :return: Boolean -> @frame is in @dataframe ? True : False
+    """
     # <frame> is a dictionary with <Constants.dataframe_titles> keys and one item for all of them -  a single record
     # If dataframe of frame is not defined, there is nothing to do here
     if dataframe is None or frame is None:

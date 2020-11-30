@@ -7,11 +7,19 @@ import Utils
 from threading import Timer
 
 
-# Listener to database - called when database data changed (add, modify, remove)
 def stream_handler(message):
-    # print(message["event"])  # put
-    # print(message["path"])  # /-K7yGTTEp7O549EzTYtI
-    # print(message["data"])  # {'title': 'Pyrebase', "body": "etc..."}
+    """
+    Listener to database - called when database data changed (add, modify, remove)
+
+    :parameter message: dictionary with 'event', 'data' and 'path' keys
+    :return: Nothing
+
+    Example:
+
+    # print(message["event"]) -> put\n
+    # print(message["path"]) -> /-data\n
+    # print(message["data"]) -> {'temperature': '25', "humidity": "50"}
+    """
     event = message["event"]
     data = message["data"]
     path = message["path"]
@@ -27,8 +35,15 @@ def stream_handler(message):
         return
 
 
-# Called every <check_database_interval> minute to check the database content
 def checkDataBaseInterval():
+    """
+    Called every <Utils.check_database_interval> second to check the database content
+
+    time.run() will recall this function after <Constants.check_database_interval> seconds. This will throw
+    <RecursionError> exception, which is handled by <Utils.handleRecursionError()> function
+
+    :return: Nothing
+    """
     print(Texts.checking_database % datetime.now().strftime("%H:%M:%S"))
     # Get database data
     data = db.child(Constants.data_path).get().val()
@@ -53,14 +68,15 @@ def checkDataBaseInterval():
     except (TypeError, KeyError):
         pass  # Do nothing
     print(Texts.string_done)
-    # Call the function again after <check_database_interval> minutes
+    # Call the function again after <Utils.check_database_interval> seconds
     timer.run()
+    return
 
 
 print("=== START ===")
 firebase = pyrebase.initialize_app(Constants.config)  # initialize firebase with that config
-db = firebase.database()  # get firebase instance object
-my_stream = db.stream(stream_handler)  # create a stream for listening to events (update, remove, set)
+db = firebase.database()  # Get firebase instance object
+my_stream = db.stream(stream_handler)  # Create a stream for listening to events (update, remove, set)
 
 db.child(Constants.data_path).set(Constants.data_test)
 
