@@ -8,6 +8,7 @@
 import copy
 
 import Constants
+import Texts
 import Utils
 from Weather import Weather
 import warnings
@@ -83,24 +84,48 @@ def getWeatherForRegion(records):
     dataframe = checkMultipleWeather(dataframe)
     # If there are no records - end the function
     if dataframe is None:
-        return None
+        return None, None
     # Calculate the average values for each column of dataframe
     mean_weather = dataframe[Constants.dataframe_titles[1:5]].mean()
+    # The average weather_code
+    mean_weather_code = mean_weather[Constants.dataframe_titles[1]]
     # Check if the weather code is in range (100-499)
     if Utils.inWeatherCodeRange(
             # Select weather code from list - index 1 is for 'weather_code'
-            mean_weather[Constants.dataframe_titles[1]],
+            mean_weather_code,
             Constants.min_weather_code,
             Constants.max_weather_code):
-        # Return the weather as a Weather object
+        # Return the weather as a Weather object and the mean weather_code
         return Weather(
             # Get weather index by using weather code - using the index get the weather title
-            Utils.getWeatherString(Utils.getWeatherIndex(mean_weather[Constants.dataframe_titles[1]])),
+            Utils.getWeatherString(Utils.getWeatherIndex(mean_weather_code)),
             # Set the danger for current region
             # Set temperature, humidity and air quality
             mean_weather[Constants.dataframe_titles[2]],
             mean_weather[Constants.dataframe_titles[3]],
-            mean_weather[Constants.dataframe_titles[4]])
+            mean_weather[Constants.dataframe_titles[4]]), \
+               mean_weather_code
+    return None, None
+
+
+# Get the danger for a region, using its weather data
+# Ex: If <weather_code = 199>, in the region is too hot
+def getDangerRegion(weather_code):
+    # Loop through all weather types
+    for i in [100, 200, 300, 400]:
+        # Store the weather_code limits dictionary - where all danger limits are stored for each weather type
+        limits = Constants.danger_weather_code[i]
+        # Initiate the counter for current danger limit
+        index = 1
+        # Loop through all limits of the current weather type - a weather type can have multiple danger types
+        for limit in limits:
+            # Check in which limit the weather_code is
+            if Utils.inWeatherCodeRange(weather_code, limit[0], limit[1]):
+                # The weather_code is in a danger limit - return the danger string from <danger_dict>
+                return Texts.danger_dict[i+index]
+            # Go for the next danger limit
+            index += 1
+    # No dangers found
     return None
 
 
@@ -168,19 +193,19 @@ def existInDataframe(dataframe, frame):
     # Store dataframe titles here - it is used to select data from dataframe
     dataframe_titles = Constants.dataframe_titles
     # Remove the 'date' column - which is not necessary here
-    dataframe_titles.remove('date')
+    dataframe_titles.remove(Constants.dataframe_titles[1])
     # Dataframe table is where the dataframe table is stored without 'date' column
     dft = dataframe[dataframe_titles]
     # Store all records with column 'weather_code' equal to the one from the <frame>
     # In other words, get all records with the same <weather_code> as the <frame.weather_code>
-    weather_code_tables = dft[dft['weather_code'] == frame['weather_code'][0]]
+    weather_code_tables = dft[dft[dataframe_titles[1]] == frame[dataframe_titles[1]][0]]
     # If there is at least one valid record (same <weather_code> as the <frame.weather_code>)
     if len(weather_code_tables) > 0:
         # Get all records with the same <temperature> as <frame.temperature>
-        if len(weather_code_tables['temperature'][weather_code_tables['temperature'] ==
-                                                  frame['temperature'][0]]) > 0:
-            if len(weather_code_tables['humidity'][weather_code_tables['humidity'] ==
-                                                   frame['humidity'][0]]) > 0:
+        if len(weather_code_tables[dataframe_titles[2]][weather_code_tables[dataframe_titles[2]] ==
+                                                        frame[dataframe_titles[2]][0]]) > 0:
+            if len(weather_code_tables[dataframe_titles[3]][weather_code_tables[dataframe_titles[3]] ==
+                                                            frame[dataframe_titles[3]][0]]) > 0:
                 return True
     return False
 

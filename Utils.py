@@ -106,17 +106,20 @@ def getDataBaseLists(data, db):
 # Get the average weather condition from all records of a region
 def calculateWeatherForEachRegion(regions, records):
     if not bool(regions) or not bool(records):
-        return None
+        return None, None
     try:
         weather_list = []
+        danger_list = []
         for index in range(len(regions)):
-            weather = Machine_learning.getWeatherForRegion(records[index])
+            weather, mean_weather_code = Machine_learning.getWeatherForRegion(records[index])
+            danger = Machine_learning.getDangerRegion(mean_weather_code)
             if weather is not None:
                 weather_list.append(weather)
-        return weather_list
+                danger_list.append(danger)
+        return weather_list, danger_list
     except (TypeError, KeyError) as err:
         print(err)
-        return None
+        return None, None
 
 
 # Get the index of the weather using the weather code
@@ -199,23 +202,33 @@ def writeRegionWeather(data, db):
     # Get two lists of regions and records from data dictionary
     regions, records = getDataBaseLists(list(data.items()), db)
     # Calculate an average weather for each region using its records list
-    weather = calculateWeatherForEachRegion(regions, records)
+    weather_list, danger_list = calculateWeatherForEachRegion(regions, records)
     # If the weather is valid and all regions have a valid weather
-    if weather is not None and len(regions) == len(weather):
+    if weather_list is not None and len(regions) == len(weather_list):
         # Loop through all regions
         for i in range(len(regions)):
             try:
                 # Write in database - node weather - the region weather
                 db.child(Constants.weather_path).child(regions[i]).set(
-                    {'weather': weather[i].weather,
-                     'temperature': weather[i].temperature,
-                     'humidity': weather[i].humidity,
-                     'air': weather[i].air})
+                    {'weather': weather_list[i].weather,
+                     'temperature': weather_list[i].temperature,
+                     'humidity': weather_list[i].humidity,
+                     'air': weather_list[i].air})
                 # Print a message in terminal
-                print(Texts.updating_weather_for_region % regions[i])
-                db.child(Constants.danger_path).child(regions[i]).set(
-                    {'danger_code': None})
+                print(Texts.updating_weather_for_region % regions[i], end=' ')
+                # If there is a danger state in the current region
+                if danger_list[i] is not None:
+                    # Write the danger state to database
+                    db.child(Constants.danger_path).child(regions[i]).set(danger_list[i])
+                    # Print a message for danger state updating
+                    print(Texts.updating_region_danger % danger_list[i])
+                # There is no danger state for the current region
+                else:
+                    # Print a new line in terminal if there is no danger state to print - the last print has no new line
+                    print()
             except AttributeError as err:
+                print(err)
+            except Exception as err:
                 print(err)
 
 

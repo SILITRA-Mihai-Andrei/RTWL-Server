@@ -15,7 +15,7 @@ data_path = 'data'
 # Weather path for weather in Firebase database - where the regions with their calculated weather are stored
 weather_path = 'weather'
 # Danger path for Firebase database - where the regions with their danger are stored
-danger_path = 'danger'
+danger_path = 'dangers'
 
 # MACHINE LEARNING
 # Percent of records to take from the end o a dataframe
@@ -30,6 +30,15 @@ dataframe_titles_dictionary = {dataframe_titles[0]: [],
                                dataframe_titles[2]: [],
                                dataframe_titles[3]: [],
                                dataframe_titles[4]: []}
+# Danger weather_codes dictionary
+# Each key is for a weather type (ex: 100 is for sun weather)
+#
+danger_weather_code = {
+    100: [[190, 199]],
+    200: [[290, 299]],
+    300: [[390, 399]],
+    400: [[490, 499]]
+}
 
 
 # Firebase configuration
@@ -116,9 +125,9 @@ dataframe_test = {
          5, 5, 5, 5]
 }
 
-day = '20:11:28:'
-hour = '17:'
-data_test = {'47 63 26 24': {day+hour+'11': {'air': 8, 'code': 480, 'humidity': 28, 'temperature': 15}},
+day = '20:11:30:'
+hour = '14:'
+data_test = {'47 63 26 24': {day+hour+'11': {'air': 8, 'code': 491, 'humidity': 28, 'temperature': 15}},
              '47 63 26 25': {day+hour+'11': {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
              '47 63 26 26': {day+hour+'11': {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
              '47 63 26 27': {day+hour+'11': {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
