@@ -1,4 +1,7 @@
+from datetime import datetime
+
 check_database_interval = 5  # How often to check the database in seconds
+check_for_closing_server_interval = 1  # How often to check the database in seconds
 older_than = 60  # Record older than <minutes>
 
 min_weather_code = 100
@@ -11,8 +14,10 @@ min_air_quality = 4  # values under this might be produced even with damaged sen
 max_air_quality = 100
 
 record_name_format = '%y:%m:%d:%H:%M'
+record_name_sep = ':'
 
 return_value_index_of_weather_not_found = -1
+return_value_invalid_datetime_value = -1
 
 # Data path for data in FireBase database - where the regions with their records are stored
 data_path = 'data'
@@ -20,12 +25,18 @@ data_path = 'data'
 weather_path = 'weather'
 # Danger path for Firebase database - where the regions with their danger are stored
 danger_path = 'dangers'
+# Predictions path for Firebase database - where the regions with their weather predictions are stored
+predictions_path = 'predictions'
 
 # MACHINE LEARNING
 # Percent of records to take from the end o a dataframe
 records_count_percent = 0.5
-# Machine learning .CVS file
+# Minimum relationship percent to predict values
+min_relationship = 0.1  # <= 10%
+# Machine learning .CVS external file
 cvs_url = ''
+# Machine learning .CVS local file
+cvs_local = 'ML_Server_RTWL.cvs'
 # Titles for data frame
 dataframe_titles = ['date', 'weather_code', 'temperature', 'humidity', 'air_quality']
 # Data frame dictionary
@@ -88,13 +99,13 @@ config = {
 
 dataframe_test = {
     'date':
-        ['20:11:16:16:30', '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
-         '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
-         '20:11:16:16:30', '20:11:18:16:30', '20:11:17:16:28', '20:11:16:16:27', '20:11:16:16:27',
-         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
-         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
-         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27',
-         '20:11:16:16:30', '20:11:16:16:30', '20:11:16:16:28', '20:11:16:16:27'],
+        ['20:11:16:16:31', '20:11:16:16:32', '20:11:18:16:33', '20:11:17:16:27', '20:11:16:16:28', '20:11:16:16:29',
+         '20:11:16:16:34', '20:11:18:16:35', '20:11:17:16:24', '20:11:16:16:25', '20:11:16:16:26',
+         '20:11:16:16:36', '20:11:18:16:37', '20:11:17:16:21', '20:11:16:16:22', '20:11:16:16:23',
+         '20:11:16:16:38', '20:11:16:16:39', '20:11:16:16:19', '20:11:16:16:20',
+         '20:11:16:16:40', '20:11:16:16:41', '20:11:16:16:17', '20:11:16:16:18',
+         '20:11:16:16:42', '20:11:16:16:43', '20:11:16:16:15', '20:11:16:16:16',
+         '20:11:16:16:44', '20:11:16:16:45', '20:11:16:16:13', '20:11:16:16:14'],
     'weather_code':
         [100, 100, 102, 104, 106, 108,
          110, 112, 114, 116, 118,
@@ -129,21 +140,30 @@ dataframe_test = {
          5, 5, 5, 5]
 }
 
-day = '20:11:30:'
-hour = '14:'
-data_test = {'47 63 26 24': {day+hour+'11': {'air': 8, 'code': 491, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 25': {day+hour+'11': {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 26': {day+hour+'11': {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 27': {day+hour+'11': {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 20': {day+hour+'11': {'air': 8, 'code': 100, 'humidity': 40, 'temperature': 15},
-                             day+hour+'16': {'air': 8, 'code': 105, 'humidity': 37, 'temperature': 16},
-                             day+hour+'15': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             day+hour+'21': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             day+hour+'22': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             day+hour+'24': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             day+hour+'25': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             day+hour+'26': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             day+hour+'27': {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             day+hour+'23': {'air': 9, 'code': 141, 'humidity': 35, 'temperature': 17},
-                             day+hour+'14': {'air': 9, 'code': 143, 'humidity': 33, 'temperature': 19}}
+max_minute_add = 15
+# Get current date and time with the format=<record_name_format>
+dt = datetime.now().strftime(record_name_format)
+# Replace the last value (minute) with <@> to create different records name
+split = dt.split(':')
+length = len(split)-1
+h = int(split[length-1])
+m = int(split[length])
+if m < max_minute_add:
+    dt.replace(split[length-1], str(h-1))
+dt = dt.replace(split[length], '@')
+data_test = {'47 63 26 24': {dt.replace('@', str(m-15)): {'air': 8, 'code': 491, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 25': {dt.replace('@', str(m-14)): {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 26': {dt.replace('@', str(m-13)): {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
+             '47 63 26 27': {dt.replace('@', str(m-12)): {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
+             '47 64 26 20': {dt.replace('@', str(m-15)): {'air': 8, 'code': 100, 'humidity': 40, 'temperature': 15},
+                             dt.replace('@', str(m-14)): {'air': 8, 'code': 105, 'humidity': 37, 'temperature': 16},
+                             dt.replace('@', str(m-13)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-12)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-11)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-10)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-9)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-8)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-7)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-6)): {'air': 9, 'code': 141, 'humidity': 35, 'temperature': 17},
+                             dt.replace('@', str(m-5)): {'air': 9, 'code': 143, 'humidity': 33, 'temperature': 19}}
              }

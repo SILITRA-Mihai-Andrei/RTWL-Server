@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 import Constants
@@ -32,7 +33,9 @@ def isNumber(number):
         # The cast was successful
         return True
     # The cast was unsuccessful, the string is not a number
-    except ValueError:
+    except ValueError as err:
+        # Write the exception in logging
+        logging.exception(str(err))
         return False
 
 
@@ -117,14 +120,18 @@ def getDataBaseLists(data, db):
                 try:
                     # Store all records for the current region as Record object
                     rec_list.append(Record(rec_name, Data(rec_data)))
-                except TypeError:
+                except TypeError as err:
+                    # Write the exception in logging
+                    logging.exception(str(err))
                     # Something was wrong with the current record - delete it from database
                     db.child(Constants.data_path).child(reg).child(rec_name).remove()
                     return None, None
             # Store the records list of the current region in the list
             records.append(rec_list)
         return regions, records
-    except TypeError:
+    except TypeError as err:
+        # Write the exception in logging
+        logging.exception(str(err))
         # There was some invalid data in database
         print(Texts.invalid_database_data)
         return None, None
@@ -156,7 +163,8 @@ def calculateWeatherForEachRegion(regions, records):
                 danger_list.append(danger)
         return weather_list, danger_list
     except (TypeError, KeyError) as err:
-        print(err)
+        # Write the exception in logging
+        logging.exception(str(err))
         return None, None
 
 
@@ -246,7 +254,7 @@ def checkDataBaseData(db, records, regions, data):
                     print(Texts.region_deleted % region)
                     # Delete the region from 'weather' node
                     db.child(Constants.weather_path).child(region).remove()
-                    print(Texts.region_deleted_delete_weather_data % region)
+                    print(Texts.region_deleted_delete_its_data % region)
         # Check if the region is None
         if not bool(data[region]):
             # Remove the region from dictionary
@@ -303,10 +311,9 @@ def writeRegionWeather(data, db):
                 else:
                     # Print a new line in terminal if there is no danger state to print - the last print has no new line
                     print()
-            except AttributeError as err:
-                print(err)
-            except Exception as err:
-                print(err)
+            except (AttributeError, Exception) as err:
+                # Write the exception in logging
+                logging.exception(str(err))
 
 
 def handleRecursionError(timer, stream):
@@ -323,7 +330,9 @@ def handleRecursionError(timer, stream):
     try:
         # Call the function again after <check_database_interval> minutes
         timer.run()
-    except RecursionError:
+    except RecursionError as err:
+        # Write the exception in logging
+        logging.exception(str(err))
         # Exception: when the callback stack is full
         print("################### RecursionError #######################")
         # Remove database listener
@@ -334,6 +343,28 @@ def handleRecursionError(timer, stream):
         stream.start()
         # Call the function again after <check_database_interval> minutes
         timer.run()
+
+
+def getSecondsFromStringDateTime(date_time):
+    """
+    Get the seconds of the @date_time string.
+
+    :param date_time: String representing the date and time.
+    :return: The integer value of @date_time
+    """
+    split_date_time = date_time.split(Constants.record_name_sep)
+    if len(split_date_time) == 5:
+        for value in split_date_time:
+            if not isNumber(value):
+                return Constants.return_value_invalid_datetime_value
+        result = int(split_date_time[0]) * 31622400  # Year in seconds
+        result += int(split_date_time[1]) * 2592000  # Month in seconds
+        result += int(split_date_time[2]) * 86400  # Day in seconds
+        result += int(split_date_time[3]) * 3600  # Hour in seconds
+        result += int(split_date_time[4]) * 60  # Minute in seconds
+        return result
+    else:
+        return Constants.return_value_invalid_datetime_value
 
 
 def getWeatherString(index):

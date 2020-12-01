@@ -8,6 +8,8 @@
 
 import copy
 
+import numpy
+
 import Constants
 import Texts
 import Utils
@@ -76,16 +78,39 @@ def predict(dataframe, for_prediction, values, to_predict):
         List with names of columns from @dataframe that are used to be predicted.
     :return: List(float) - predicted values, selected by @to_predict list, using the @for_prediction list.
     """
+
+    # Create a new dataframe - used in the case <values> is a record name (string of date and time) and must be
+    # converted to an integer (number of seconds)
+    new_dataframe = dataframe
+    if len(values) == 1:
+        if type(values[0]) == str:
+            # Create a copy of dataframe to modify the 'date' column (convert datetime string to integer)
+            new_dataframe = copy.deepcopy(dataframe)
+            # Convert datetime string to number of seconds (integer)
+            values[0] = numpy.int64(Utils.getSecondsFromStringDateTime(values[0]))
+            # Loop through all dataframe, row by row
+            for index, row in new_dataframe.iterrows():
+                # For each row, convert the string date and time to number of seconds
+                new_dataframe.at[index, 'date'] = numpy.int64(Utils.getSecondsFromStringDateTime(row['date']))
+
+    # Get the linear regression components
+    # <relation> will be used to see the relationship between <for_prediction> and <to_predict> columns
+    # The <relation> value gives the accurate percent of prediction
+    slope, intercept, relation, p, std_err = stats.linregress(list(new_dataframe[for_prediction][for_prediction[0]]),
+                                                              list(new_dataframe[to_predict][to_predict[0]]))
+    if relation <= Constants.min_relationship:
+        return None, relation
+
     # Get the columns data used for prediction
-    columns_for_prediction = dataframe[for_prediction]
+    columns_for_prediction = new_dataframe[for_prediction]
     # Select the columns to predict
-    columns_to_predict = dataframe[to_predict]
+    columns_to_predict = new_dataframe[to_predict]
     # Calculate regression - necessary to predict the values
     regression = linear_model.LinearRegression()
     # Set the columns for prediction
     regression.fit(columns_for_prediction, columns_to_predict)
     # Return the predicted values as a list
-    return regression.predict([values])
+    return regression.predict([values]), relation
 
 
 def getWeatherForRegion(records):
@@ -159,7 +184,7 @@ def getDangerRegion(weather_code):
             # Check in which limit the weather_code is
             if Utils.inWeatherCodeRange(weather_code, limit[0], limit[1]):
                 # The weather_code is in a danger limit - return the danger string from <danger_dict>
-                return Texts.danger_dict[i+index]
+                return Texts.danger_dict[i + index]
             # Go for the next danger limit
             index += 1
     # No dangers found
@@ -169,7 +194,7 @@ def getDangerRegion(weather_code):
 def getSliceOfDataFrame(dataframe, percent):
     """
     Get a portion of @dataframe from the end. The records in @dataframe is ordered and the last records represents
-        the newest records. The first records representes the old records. That's why this function returns the records
+        the newest records. The first records represents the old records. That's why this function returns the records
         from end.
 
     :Examples:
@@ -285,8 +310,11 @@ def existInDataframe(dataframe, frame):
 data_dict = {}
 
 if Constants.cvs_url == '':
-    # If the url is empty, read the test dictionary as .CVS file
-    data_dict = Constants.dataframe_test
+    if Constants.cvs_local == '':
+        # If the external and local url are empty, read the test dictionary as .CVS file
+        data_dict = Constants.dataframe_test
+    else:
+        data_dict = pandas.read_csv(Constants.cvs_local)
 else:
     # If there is a .CVS file link, read from it
     data_dict = pandas.read_csv(Constants.cvs_url, names=Constants.dataframe_titles)
@@ -297,9 +325,11 @@ dataFrame = pandas.DataFrame(data_dict, columns=Constants.dataframe_titles)
 # Each small table contains weather codes for a single weather intensity (see table in this file header)
 weather_data_frame_list, tables_count = sortByWeatherCode(dataFrame)
 
-slope, intercept, r, p, std_err = stats.linregress(weather_data_frame_list[0].weather_code,
-                                                   weather_data_frame_list[0].temperature)
-
 # print(weather_data_frame_list)
 # print(predict(weather_data_frame_list[0], ['temperature', 'humidity'], [20, 30], ['weather_code']))
-# print(predict(weather_data_frame_list[0], ['weather_code'], [120], ['temperature']))
+print(
+    predict(
+        weather_data_frame_list[0],
+        ['date'],
+        ['20:12:01:13:37'],
+        ['weather_code']))

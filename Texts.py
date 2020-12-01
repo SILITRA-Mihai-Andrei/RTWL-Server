@@ -24,9 +24,20 @@ invalid_database_data = 'Invalid Database data'
 updating_weather_for_region = 'Updating weather for region %s.'
 updating_region_danger = "Updating danger state to '%s'."
 region_deleted = "Region %s was deleted."
-region_deleted_delete_weather_data = "Region %s has no more records. Delete its weather data."
+region_deleted_delete_its_data = "Region %s has no more records. Delete its weather, danger and predicted data."
 string_nothing_to_do = 'Nothing to do.'
 string_done = 'Done.'
+no_database_data = 'No data in database.'
+invalid_command = 'Invalid command.'
+
+writing_test_data_to_database = 'Writing test data to database...'
+
+# Stopping the server
+start_stop_server = 'Stopping the server...'
+stream_closing = 'Closing the FireBase stream...'
+timer_closing = 'Closing the timer thread...'
+saving_machine_learning_dataframe = 'Saving the machine learning dataframe to %s...'
+
 
 # Dangers dictionary
 danger_dict = {
