@@ -7,13 +7,13 @@
 # 4..   Soft snow fall  Moderate snow fall  Massive snow fall
 
 import copy
-
 import numpy
 
 import Constants
 import Texts
 import Utils
 from Weather import Weather
+
 import warnings
 # Machine learning functions and tables
 import pandas
@@ -181,6 +181,9 @@ def getDangerRegion(weather_code):
         index = 1
         # Loop through all limits of the current weather type - a weather type can have multiple danger types
         for limit in limits:
+            # Check if the weather_code is not None
+            if weather_code is None:
+                return None
             # Check in which limit the weather_code is
             if Utils.inWeatherCodeRange(weather_code, limit[0], limit[1]):
                 # The weather_code is in a danger limit - return the danger string from <danger_dict>
@@ -210,12 +213,12 @@ def getSliceOfDataFrame(dataframe, percent):
     length = len(dataframe)
     # Store the number of records to return
     # Calculate how many records to return from the end of table
-    # Ex: If the length=10 and percent=0.5 than records_count = 5 - the function will return 5 records from the end
-    records_count = int(length * percent)
-    # If there are more than one valid record
-    if records_count > 1:
-        # Add one more record to return - 50% + 1
-        records_count += 1
+    # Ex: If the length=10 and percent=0.49 than records_count = 4 - the function will return 4 records from the end
+    # percent=0.49 will return (50%-1) records
+    # percent=0.51 will return (50%+1) records
+    # The int casting: a value under or equal to 0.50 will be converted to 0,
+    #   and a value over 0.5 will be converted to 1
+    records_count = round(length * percent)
     # Return the number of record from the end of the table, which are the most recent records (less older)
     return dataframe.tail(records_count)
 
@@ -239,6 +242,7 @@ def checkMultipleWeather(dataframe):
     # Get the list of tables depending on weather type (see the table in this file header) and how many non-empty tables
     weather_list, counter = sortByWeatherCode(dataframe)
     # There are no tables with records
+    print(dataframe)
     if counter == 0:
         return None
     # There is one table with records
@@ -252,12 +256,18 @@ def checkMultipleWeather(dataframe):
         for weather in weather_list:
             # Continue only if the table has records
             if not weather.empty:
-                # Get <x% + 1> of the most recent records (less older)
-                slice_dataframe = getSliceOfDataFrame(weather, Constants.records_count_percent)
+                # Store in this variable a part of dataframe (from the end - the newest)
+                slice_dataframe = None
+                # If there are more than 1 record, get a slide of dataframe
+                # If only one record, a slice of a record means no record
+                if len(weather) != 1:
+                    # Get <Constants.records_count_percent> of the most recent records (less older)
+                    slice_dataframe = getSliceOfDataFrame(weather, Constants.records_count_percent)
                 # Continue only if the returned dataframe has records
-                if not slice_dataframe.empty:
-                    # Add the returned dataframe in the list
-                    new_weather_list.append(slice_dataframe)
+                if slice_dataframe is not None:
+                    if not slice_dataframe.empty:
+                        # Add the returned dataframe in the list
+                        new_weather_list.append(slice_dataframe)
         # Create a new dataframe
         new_dataframe = pandas.DataFrame(columns=Constants.dataframe_titles)
         # Loop through all new weather list
@@ -272,35 +282,35 @@ def checkMultipleWeather(dataframe):
         return None
 
 
-def existInDataframe(dataframe, frame):
+def existInDataframe(dataframe, record):
     """
     Check if the @frame exists in @dataframe with the same values, except @air_quality value.
     This function is used to check the @dataframe to avoid duplication of @frame.
 
     :param dataframe: The pandas.DataFrame object where are stored all records.
-    :param frame: The pandas.DataFrame object that must be inserted in @dataframe.
+    :param record: The Record object that must be inserted in @dataframe.
     :return: Boolean -> @frame is in @dataframe ? True : False
     """
     # <frame> is a dictionary with <Constants.dataframe_titles> keys and one item for all of them -  a single record
     # If dataframe of frame is not defined, there is nothing to do here
-    if dataframe is None or frame is None:
+    if dataframe is None or record is None:
         return False
     # Store dataframe titles here - it is used to select data from dataframe
-    dataframe_titles = Constants.dataframe_titles
+    dataframe_titles = copy.deepcopy(Constants.dataframe_titles)
     # Remove the 'date' column - which is not necessary here
-    dataframe_titles.remove(Constants.dataframe_titles[1])
+    dataframe_titles.remove(Constants.dataframe_titles[0])
     # Dataframe table is where the dataframe table is stored without 'date' column
     dft = dataframe[dataframe_titles]
     # Store all records with column 'weather_code' equal to the one from the <frame>
     # In other words, get all records with the same <weather_code> as the <frame.weather_code>
-    weather_code_tables = dft[dft[dataframe_titles[1]] == frame[dataframe_titles[1]][0]]
+    weather_code_tables = dft[dft[dataframe_titles[0]] == record.data.code]
     # If there is at least one valid record (same <weather_code> as the <frame.weather_code>)
     if len(weather_code_tables) > 0:
         # Get all records with the same <temperature> as <frame.temperature>
-        if len(weather_code_tables[dataframe_titles[2]][weather_code_tables[dataframe_titles[2]] ==
-                                                        frame[dataframe_titles[2]][0]]) > 0:
-            if len(weather_code_tables[dataframe_titles[3]][weather_code_tables[dataframe_titles[3]] ==
-                                                            frame[dataframe_titles[3]][0]]) > 0:
+        if len(weather_code_tables[dataframe_titles[1]][weather_code_tables[dataframe_titles[1]] ==
+                                                        record.data.temperature]) > 0:
+            if len(weather_code_tables[dataframe_titles[2]][weather_code_tables[dataframe_titles[2]] ==
+                                                            record.data.humidity]) > 0:
                 return True
     return False
 
@@ -327,9 +337,9 @@ weather_data_frame_list, tables_count = sortByWeatherCode(dataFrame)
 
 # print(weather_data_frame_list)
 # print(predict(weather_data_frame_list[0], ['temperature', 'humidity'], [20, 30], ['weather_code']))
-print(
+"""print(
     predict(
         weather_data_frame_list[0],
         ['date'],
         ['20:12:01:13:37'],
-        ['weather_code']))
+        ['weather_code']))"""

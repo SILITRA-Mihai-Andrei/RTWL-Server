@@ -158,9 +158,8 @@ def calculateWeatherForEachRegion(regions, records):
         for index in range(len(regions)):
             weather, mean_weather_code = Machine_learning.getWeatherForRegion(records[index])
             danger = Machine_learning.getDangerRegion(mean_weather_code)
-            if weather is not None:
-                weather_list.append(weather)
-                danger_list.append(danger)
+            weather_list.append(weather)
+            danger_list.append(danger)
         return weather_list, danger_list
     except (TypeError, KeyError) as err:
         # Write the exception in logging
@@ -252,8 +251,10 @@ def checkDataBaseData(db, records, regions, data):
                 if len(records_list) == j+1:
                     # The region will no longer have records - because the current one was removed
                     print(Texts.region_deleted % region)
-                    # Delete the region from 'weather' node
+                    # Delete the region from 'weather', 'dangers' and 'predictions' nodes
                     db.child(Constants.weather_path).child(region).remove()
+                    db.child(Constants.danger_path).child(region).remove()
+                    db.child(Constants.predictions_path).child(region).remove()
                     print(Texts.region_deleted_delete_its_data % region)
         # Check if the region is None
         if not bool(data[region]):
@@ -261,15 +262,10 @@ def checkDataBaseData(db, records, regions, data):
             del data[region]
             # Put in regions list a None object instead of region
             regions[i] = None
-    # Create a new list to store the remaining regions
-    new_regions = []
-    for x in regions:
-        # For each regions that is not None object
-        if x is not None:
-            # Put in the new list the region
-            new_regions.append(x)
     # After all data in data dictionary is checked
+    # Write the data in database
     writeRegionWeather(data, db)
+    return records
 
 
 def writeRegionWeather(data, db):
@@ -293,6 +289,9 @@ def writeRegionWeather(data, db):
         # Loop through all regions
         for i in range(len(regions)):
             try:
+                # The current region has no valid weather, continue with the next region
+                if weather_list[i] is None:
+                    continue
                 # Write in database - node weather - the region weather
                 db.child(Constants.weather_path).child(regions[i]).set(
                     {'weather': weather_list[i].weather,
@@ -314,6 +313,29 @@ def writeRegionWeather(data, db):
             except (AttributeError, Exception) as err:
                 # Write the exception in logging
                 logging.exception(str(err))
+
+
+def writeRecordsInDataframe(records):
+    """
+    Write the new records in the main dataframe (from Machine_learning file). The records with the same values that
+    exists in dataframe will be ignored (no duplications).
+
+    :param records: list(list()) -- The list of list of Record objects used to write in dataframe
+    :return: Nothing.
+    """
+    # The list is not defined -- something was wrong
+    if records is None:
+        return
+    # Loop through the main list, containing the list of Record objects
+    for region_recs in records:
+        # Loop through all Record objects of each list
+        for record in region_recs:
+            # Check if the record is already wrote in dataframe (ignoring the record name - the record date and time)
+            if not Machine_learning.existInDataframe(Machine_learning.dataFrame, record) and record is not None:
+                # Write in the dataframe the new record values
+                Machine_learning.dataFrame.loc[len(Machine_learning.dataFrame)] = [
+                    record.name, record.data.code, record.data.temperature, record.data.humidity, record.data.air
+                ]
 
 
 def handleRecursionError(timer, stream):
