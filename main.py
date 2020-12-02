@@ -42,18 +42,34 @@ def stream_handler(message):
         # Delete the region from 'predictions' node
         db.child(path.replace(Constants.data_path, Constants.predictions_path)).remove()
         # Print a message on terminal
-        print(Texts.region_deleted_delete_its_data % split_path[2])
     # The stream end its execution
     stream_execution = False
 
 
 def endTimerFunction():
+    """
+    The main timer, who call every <Constants.check_database_interval> seconds the <checkDataBaseInterval>
+    function, has ended its function execution.
+
+    Set the Boolean variable to false (timer ended function execution) and restart the timer for the next function
+    call.
+
+    After the callback stack is full, a RecursionError is threw and treated here.
+
+    :return: Nothing.
+    """
     print(Texts.string_done)
     # Declare the <timer_execution> as external - it is declared in the main body
     global timer_execution
     timer_execution = False
     # Restart timer to call the function again after specified time
-    timer.run()
+    try:
+        timer.run()
+    except RecursionError as err:
+        # Write the exception in logging
+        logging.exception(str(err))
+        # The callback stack is full - timer called this function too many times and now must return something
+        Utils.handleRecursionError(timer, my_stream)
 
 
 def checkDataBaseInterval():
@@ -85,12 +101,6 @@ def checkDataBaseInterval():
     try:
         # Create a list from database data dictionary
         result = list(data.items())
-    except RecursionError as err:
-        # Write the exception in logging
-        logging.exception(str(err))
-        # The callback stack is full - timer called this function too many times and now must return something
-        Utils.handleRecursionError(timer, my_stream)
-        exception = True
     except Exception as err:
         print(err)
         # Write the exception in logging
@@ -112,7 +122,8 @@ def checkDataBaseInterval():
     # If received valid data from database - check all data
     try:
         # Check database data
-        Utils.checkDataBaseData(db, records, regions, data)
+        records = Utils.checkDataBaseData(db, records, regions, data)
+        Utils.writeRecordsInDataframe(records)
     # If something goes wrong
     except (TypeError, KeyError) as err:
         # Write the exception in logging
@@ -130,6 +141,8 @@ def closeServer():
     - Saving the machine learning dataframe to a <Constants.cvs_local> file - dataframe is what the server learned and
         it is used in machine learning functions (predictions, calculating the mean values, etc).
     """
+    # Get the updated dataframe from <Machine_learning.py>
+    dataframe = Machine_learning.dataFrame
     # Create timer - call function (parameter 2) after a time (parameter 1)
     close_server_timer = Timer(Constants.check_for_closing_server_interval, closeServer, args=None, kwargs=None)
     # The Firebase stream or the timer is in execution - wait until execution is done
@@ -155,7 +168,7 @@ def closeServer():
         print(Texts.saving_machine_learning_dataframe % Constants.cvs_local, end='')
         # Saving the machine learning dataframe to a <Constants.cvs_local> file - dataframe is what the server
         # learned and it is used in machine learning functions (predictions, calculating the mean values, etc).
-        Machine_learning.dataFrame.to_csv(Constants.cvs_local, index=False)
+        dataframe.to_csv(Constants.cvs_local, index=False)
         print(Texts.string_done)
         print("=== END ===")
         return
@@ -173,7 +186,7 @@ def exec_command():
         if string == 't' or string == 'test':
             # Write test data in database
             print(Texts.writing_test_data_to_database, end='')
-            db.child(Constants.data_path).set(Constants.data_test)
+            db.child(Constants.data_path).set(Constants.get_data_test())
             print(Texts.string_done)
     else:
         print(Texts.invalid_command)

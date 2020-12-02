@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from dateutil.relativedelta import relativedelta
+
 check_database_interval = 5  # How often to check the database in seconds
 check_for_closing_server_interval = 1  # How often to check the database in seconds
 older_than = 60  # Record older than <minutes>
@@ -30,7 +32,11 @@ predictions_path = 'predictions'
 
 # MACHINE LEARNING
 # Percent of records to take from the end o a dataframe
-records_count_percent = 0.5
+# The int casting: a value under or equal to 0.50 will be converted to 0,
+#   and a value over 0.5 will be converted to 1
+# percent=0.49 will return (50%-1) records
+# percent=0.51 will return (50%+1) records
+records_count_percent = 0.51
 # Minimum relationship percent to predict values
 min_relationship = 0.1  # <= 10%
 # Machine learning .CVS external file
@@ -54,7 +60,6 @@ danger_weather_code = {
     300: [[390, 399]],
     400: [[490, 499]]
 }
-
 
 # Firebase configuration
 config = {
@@ -140,30 +145,55 @@ dataframe_test = {
          5, 5, 5, 5]
 }
 
-max_minute_add = 15
-# Get current date and time with the format=<record_name_format>
-dt = datetime.now().strftime(record_name_format)
-# Replace the last value (minute) with <@> to create different records name
-split = dt.split(':')
-length = len(split)-1
-h = int(split[length-1])
-m = int(split[length])
-if m < max_minute_add:
-    dt.replace(split[length-1], str(h-1))
-dt = dt.replace(split[length], '@')
-data_test = {'47 63 26 24': {dt.replace('@', str(m-15)): {'air': 8, 'code': 491, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 25': {dt.replace('@', str(m-14)): {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 26': {dt.replace('@', str(m-13)): {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
-             '47 63 26 27': {dt.replace('@', str(m-12)): {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
-             '47 64 26 20': {dt.replace('@', str(m-15)): {'air': 8, 'code': 100, 'humidity': 40, 'temperature': 15},
-                             dt.replace('@', str(m-14)): {'air': 8, 'code': 105, 'humidity': 37, 'temperature': 16},
-                             dt.replace('@', str(m-13)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-12)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-11)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-10)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-9)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-8)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-7)): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-6)): {'air': 9, 'code': 141, 'humidity': 35, 'temperature': 17},
-                             dt.replace('@', str(m-5)): {'air': 9, 'code': 143, 'humidity': 33, 'temperature': 19}}
-             }
+
+def getDateTimeDelta(date_time, op, form=record_name_format, days=0, hours=0, minutes=0, seconds=0):
+    """
+    Get the @date_time string with the @form format after the @op with the rest of parameters are applied.
+
+    Examples:                                       \n
+    date_time = 20/12/05 15:30                      \n
+    op = '-'                                        \n
+    form = '%y:%m:%d:%H:%M'                         \n
+    days = 3                                        \n
+    The function will return -> 20:12:02:15:30      \n
+
+    :param date_time: datetime.datetime object -- the date and time you want to apply @op and the rest of parameters
+    :param op: String -- the operator to apply between @date_time and the rest of parameters ('-', or '+')
+    :param form: String -- the return format of date and time
+    :param days: Int -- the days to add/subtract to/from @date_time
+    :param hours: Int -- the hours to add/subtract to/from @date_time
+    :param minutes: Int -- the minutes to add/subtract to/from @date_time
+    :param seconds: Int -- the seconds to add/subtract to/from @date_time
+    :return: String -- the date and time with @op applied, with @form format
+    """
+    ops = {'+': (lambda x, y: x + y), '-': (lambda x, y: x - y)}
+    if op == '+' or op == '-':
+        return (ops[op](date_time, relativedelta(days=days, hours=hours, minutes=minutes, seconds=seconds))) \
+            .strftime(form)
+    return None
+
+
+def get_data_test():
+    dt = datetime.now()
+    return {
+        '47 63 26 24': {
+            getDateTimeDelta(dt, '-', minutes=1): {'air': 8, 'code': 491, 'humidity': 28, 'temperature': 15}},
+        '47 63 26 25': {
+            getDateTimeDelta(dt, '-', minutes=2): {'air': 8, 'code': 450, 'humidity': 28, 'temperature': 15}},
+        '47 63 26 26': {
+            getDateTimeDelta(dt, '-', minutes=3): {'air': 8, 'code': 400, 'humidity': 28, 'temperature': 15}},
+        '47 63 26 27': {
+            getDateTimeDelta(dt, '-', minutes=4): {'air': 8, 'code': 380, 'humidity': 28, 'temperature': 15}},
+        '47 64 26 20': {
+            getDateTimeDelta(dt, '-', minutes=1): {'air': 8, 'code': 100, 'humidity': 40, 'temperature': 15},
+            getDateTimeDelta(dt, '-', minutes=1): {'air': 8, 'code': 105, 'humidity': 37, 'temperature': 16},
+            getDateTimeDelta(dt, '-', minutes=2): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=2): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=2): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=3): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=3): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=3): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=4): {'air': 9, 'code': 111, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=4): {'air': 9, 'code': 141, 'humidity': 35, 'temperature': 17},
+            getDateTimeDelta(dt, '-', minutes=5): {'air': 9, 'code': 143, 'humidity': 33, 'temperature': 19}}
+    }
