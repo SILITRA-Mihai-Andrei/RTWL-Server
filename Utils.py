@@ -300,6 +300,9 @@ def writeRegionWeather(data, db):
                      'air': weather_list[i].air})
                 # Print a message in terminal
                 print(Texts.updating_weather_for_region % regions[i], end=' ')
+
+                Machine_learning.createPrediction(db, regions[i], weather_list[i])
+
                 # If there is a danger state in the current region
                 if danger_list[i] is not None:
                     # Write the danger state to database
@@ -335,6 +338,10 @@ def writeRecordsInDataframe(records):
                 # Write in the dataframe the new record values
                 Machine_learning.dataFrame.loc[len(Machine_learning.dataFrame)] = \
                     [record.name, record.data.code, record.data.temperature, record.data.humidity, record.data.air]
+                # Split the dataframe (containing all records in database) in small tables by weather code
+                # Each small table contains weather codes for a single weather intensity (see table in this file header)
+                Machine_learning.weather_data_frame_list, Machine_learning.tables_count = \
+                    Machine_learning.sortByWeatherCode(Machine_learning.dataFrame)
 
 
 def getSecondsFromStringDateTime(date_time):

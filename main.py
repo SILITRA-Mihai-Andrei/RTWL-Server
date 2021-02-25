@@ -20,19 +20,24 @@ def add_input():
     When the user press ENTER ('\n'), all characters inserted will be checked if forms a valid command.
     :return: Nothing.
     """
+    # In this variable will be stored the command
     command = ""
     print(Texts.ready_for_command)
     # The thread will run continuously until the server is shutting down
     while not stop:
         # Check if the any keyboard key was pressed
-        # Put the key in the queue
+        # Wait until a keyboard key was pressed
         cmd = sys.stdin.read(1)
+        # Check if the key is enter (finish command)
         if cmd == '\n':
+            # Execute the command
             exec_command(command)
             command = ""
         else:
+            # Add the key to the command
             command += cmd
         time.sleep(0.2)
+    # Here the thread ends its execution, because the infinite loop has ended when stop command was received
     print(Texts.thread_closing % Texts.thread_commands)
 
 
@@ -105,7 +110,9 @@ def checkDataBaseInterval():
         print(Texts.string_done)
         # Set variable to False - the function ended its execution
         checking_data_execution = False
+        # Delay the thread for the next execution - no need to check very fast
         time.sleep(Constants.check_database_interval)
+    # Here the thread ends its execution, because the infinite loop has ended when stop command was received
     print(Texts.thread_closing % Texts.thread_checking_database)
 
 

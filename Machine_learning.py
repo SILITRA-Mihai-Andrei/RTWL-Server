@@ -7,6 +7,8 @@
 # 4..   Soft snow fall  Moderate snow fall  Massive snow fall
 
 import copy
+from datetime import datetime
+
 import numpy
 
 import Constants
@@ -27,15 +29,15 @@ warnings.filterwarnings("ignore", category=UserWarning)
 pandas.set_option('display.max_rows', None)
 
 
-def getDateTime(datetime, form='%y:%m:%d:%H:%M'):
+def getDateTime(date_time, form='%y:%m:%d:%H:%M'):
     """
     Return date and time with <form> format.
 
-    :parameter datetime: A string with date and time, having the format=form
+    :parameter date_time: A string with date and time, having the format=form
     :parameter form: The format in which the datetime string comes
     :return: pandas.to_datetime(datetime, format=form)
     """
-    return pandas.to_datetime(datetime, format=form)
+    return pandas.to_datetime(date_time, format=form)
 
 
 def sortByWeatherCode(data_frame):
@@ -99,7 +101,9 @@ def predict(dataframe, for_prediction, values, to_predict):
     # The <relation> value gives the accurate percent of prediction
     slope, intercept, relation, p, std_err = stats.linregress(list(new_dataframe[for_prediction][for_prediction[0]]),
                                                               list(new_dataframe[to_predict][to_predict[0]]))
-    if relation <= Constants.min_relationship:
+    # Check if the relationship between dataframe values and for_prediction values is <= 10% and >= -10%
+    # The relationship can be from -1 (reverse related) to 1 (related), 0 means no relationship
+    if Constants.min_relationship >= relation >= Constants.min_relationship * -1:
         return None, relation
 
     # Get the columns data used for prediction
@@ -112,6 +116,104 @@ def predict(dataframe, for_prediction, values, to_predict):
     regression.fit(columns_for_prediction, columns_to_predict)
     # Return the predicted values as a list
     return regression.predict([values]), relation
+
+
+def createPrediction(db, region, weather):
+    """
+    Create predictions of weather conditions for the region.
+
+    Uses 3 dataframes. The first dataframe contains only the records with the same weather (ex: Sunny, Sun, Heat),
+    the second dataframe contains the records with the same weather category (ex: Sun, Rain),
+    the third dataframe contains all the records.
+
+    Creates a list of lists that contains predicted weather code, the probability and the time for which is predicted.
+
+    The prediction will use dataframes with old records and will create a relationship between date and time (if exists)
+
+    :param db: is the database reference used to send the predictions.
+    :param region: is the region for which are calculated predictions.
+    :param weather: specifies the current weather condition in the region.
+    :return: Nothing.
+    """
+    if region is None or weather is None:
+        return
+    # Get the index of the weather from the weather string received
+    # Using the weather titles dictionary, where all the weather conditions are stored by its index
+    # Convert the dictionary keys to a list and select the key by passing the index of the value
+    index = list(Texts.weather_titles.keys())[list(Texts.weather_titles.values()).index(weather.weather)]
+    # Check if the index is valid
+    if index == -1 or index > 11:
+        return
+    # Calculate the first index of the weather
+    # ex: for Sun weather, the first index is 0 (Sunny)
+    # ex: for Torrential rain, the first index is 3 (Soft rain)
+    _index = int(int(index / 3) * 3)
+    # In this list will be appended the dataframes with the same weather category (Sun, Rain, Wind)
+    frames = []
+    # Loop through all 3 weather intensities (0-33, 34-66, 67-99)
+    for i in range(_index, _index+3):
+        # The list (passed as parameter below) is created in the main body of this file
+        # It contains a list of dataframes, each one having only records with a weather intensity
+        # ex: the first dataframe contains all records for Sunny weather
+        # ex: the last dataframe contains all records for Massive snow fall
+        frames.append(weather_data_frame_list[i])
+    # Concatenate all the dataframes appended
+    frame = pandas.concat(frames)
+    # The list of dataframes, used for separate predictions to create medium values
+    lists = [weather_data_frame_list[index], frame, dataFrame]
+    # Store the result of predictions
+    result = []
+    # Loop through a list of values
+    # The values represents how many minutes are added to the current date and time for prediction
+    # ex: the first loop will predict the weather code after 10 minutes from now
+    for i in [10, 30, 60]:
+        # Store the predictions or the current loop (date time)
+        p = []
+        # Get the current date and time, plus the amount of minutes
+        time = Constants.getDateTimeDelta(datetime.now(), '+', minutes=i)
+        # Loop through all list of dataframes
+        for dataframe in lists:
+            # Store the prediction for the current loop
+            predicted = predict(
+                    dataframe,                          # the current dataframe in loop (3 are used for prediction)
+                    [Constants.dataframe_titles[0]],    # use to select the 'date' column in dataframe used to predict
+                    [time],                             # the value of the 'date' column that will be related
+                    [Constants.dataframe_titles[1]])    # use to select the 'weather_code' column in dataframe
+            # Append to list the prediction for the current dataframe
+            p.append(predicted)
+        # Append to list the predictions and the date-time for which prediction was made
+        result.append([p, time])
+    # Write the prediction to database
+    writePrediction(db, region, result)
+
+
+def writePrediction(db, region, predictions):
+    """
+    Write the predictions to database.
+
+    The predictions will be cumulated and made an average value.
+
+    :param db: is the database reference, used to write the data to database.
+    :param region: is the region for which the predictions are calculated.
+    :param predictions: the list of predictions for each date and time.
+    :return: Nothing.
+    """
+    # Loop through all the predictions for each prediction date and time
+    for i in predictions:
+        r = 0           # the percent of probability for the current prediction
+        code = 0        # the weather code of the current prediction
+        counter = 0     # count how many predictions are valid - used for average calculation
+        # Loop through all the predictions of the current prediction date and time
+        for j in i[0]:
+            # Check if the prediction is valid
+            if j[0] is not None:
+                code += j[0][0][0]  # add the current predicted weather code
+                r += abs(j[1])      # add the current prediction probability
+                counter += 1        # add one more successful prediction
+        # Write to database the region with the current prediction date and time and with predicted values
+        db.child(Constants.predictions_path).child(region).child(i[1]).set(
+            {'code': int(code/counter),             # calculate the average weather code
+             'probability': int(r/counter*100)})    # calculate the average prediction probability
 
 
 def getWeatherForRegion(records):
@@ -332,12 +434,3 @@ dataFrame = pandas.DataFrame(data_dict, columns=Constants.dataframe_titles)
 # Split the dataframe (containing all records in database) in small tables by weather code
 # Each small table contains weather codes for a single weather intensity (see table in this file header)
 weather_data_frame_list, tables_count = sortByWeatherCode(dataFrame)
-
-# print(weather_data_frame_list)
-# print(predict(weather_data_frame_list[0], ['temperature', 'humidity'], [20, 30], ['weather_code']))
-"""print(
-    predict(
-        weather_data_frame_list[0],
-        ['date'],
-        ['20:12:01:13:37'],
-        ['weather_code']))"""
