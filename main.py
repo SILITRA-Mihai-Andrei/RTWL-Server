@@ -2,19 +2,45 @@ import logging
 
 import pyrebase
 from datetime import datetime
+import time
 
 import Constants
 import Machine_learning
 import Texts
 import Utils
-from threading import Timer
+
+import sys
+import threading
+
+
+def add_input():
+    """
+    This is a thread that is waiting for user keyboard input.
+    The input characters will be inserted into a queue.
+    When the user press ENTER ('\n'), all characters inserted will be checked if forms a valid command.
+    :return: Nothing.
+    """
+    command = ""
+    print(Texts.ready_for_command)
+    # The thread will run continuously until the server is shutting down
+    while not stop:
+        # Check if the any keyboard key was pressed
+        # Put the key in the queue
+        cmd = sys.stdin.read(1)
+        if cmd == '\n':
+            exec_command(command)
+            command = ""
+        else:
+            command += cmd
+        time.sleep(0.2)
+    print(Texts.thread_closing % Texts.thread_commands)
 
 
 def stream_handler(message):
     """
     Listener to database - called when database data changed (add, modify, remove)
 
-    :parameter message: dictionary with 'event', 'data' and 'path' keys
+    :param message: dictionary with 'event', 'data' and 'path' keys
     :return: Nothing
 
     Example:
@@ -23,15 +49,16 @@ def stream_handler(message):
     # print(message["path"]) -> /-data\n
     # print(message["data"]) -> {'temperature': '25', "humidity": "50"}
     """
-    # Declare the <timer_execution> as external - it is declared in the main body
+    # Declare the <checking_data_execution> as external - it is declared in the main body
     global stream_execution
     # Set the variable True - the stream is busy
     stream_execution = True
+    # Get the components from the messaged received
+    event = message["event"]  # what event happened in database
+    data = message["data"]  # what data was changed
+    path = message["path"]  # where was the change
+    split_path = path.split('/')  # split the path to get the event location
 
-    event = message["event"]
-    data = message["data"]
-    path = message["path"]
-    split_path = path.split('/')
     # Check if a region was deleted from 'data' node in database (event = put and data is None)
     if event == 'put' and data is None and Constants.data_path in path and len(split_path) == 3:
         # If region was deleted
@@ -42,130 +69,108 @@ def stream_handler(message):
         # Delete the region from 'predictions' node
         db.child(path.replace(Constants.data_path, Constants.predictions_path)).remove()
         # Print a message on terminal
+        print(Texts.region_deleted_delete_its_data % split_path[len(split_path) - 1])
     # The stream end its execution
     stream_execution = False
 
 
-def endTimerFunction():
-    """
-    The main timer, who call every <Constants.check_database_interval> seconds the <checkDataBaseInterval>
-    function, has ended its function execution.
-
-    Set the Boolean variable to false (timer ended function execution) and restart the timer for the next function
-    call.
-
-    After the callback stack is full, a RecursionError is threw and treated here.
-
-    :return: Nothing.
-    """
-    print(Texts.string_done)
-    # Declare the <timer_execution> as external - it is declared in the main body
-    global timer_execution
-    timer_execution = False
-    # Restart timer to call the function again after specified time
-    try:
-        timer.run()
-    except RecursionError as err:
-        # Write the exception in logging
-        logging.exception(str(err))
-        # The callback stack is full - timer called this function too many times and now must return something
-        Utils.handleRecursionError(timer, my_stream)
-
-
 def checkDataBaseInterval():
     """
-    Called every <Utils.check_database_interval> second to check the database content
-
-    time.run() will recall this function after <Constants.check_database_interval> seconds. This will throw
-    <RecursionError> exception, which is handled by <Utils.handleRecursionError()> function
-
+    Check the database content: add to database new calculated weather data, remove the old records.
     :return: Nothing
     """
-    # Declare the <timer_execution> as external - it is declared in the main body
-    global timer_execution
-    # Set variable to True - timer called this function
-    timer_execution = True
+    # Declare the <checking_data_execution> as external - it is declared in the main body
+    global checking_data_execution
 
-    print(Texts.checking_database % datetime.now().strftime("%H:%M:%S"))
-    # Get database data as dictionary
-    data = db.child(Constants.data_path).get().val()
-    # There is no data in database or something was wrong in receiving data
-    if data is None:
-        print(Texts.no_database_data)
-        endTimerFunction()
-        return
-    # Declare result list, where database dictionary is converted to a list
-    result = []
-    # If there is any exception
-    exception = False
-    try:
-        # Create a list from database data dictionary
-        result = list(data.items())
-    except Exception as err:
-        print(err)
-        # Write the exception in logging
-        logging.exception(str(err))
-        # If any kind of exception appear
-        exception = True
-    # There was an exception or the result list is empty
-    if exception is True or not result:
-        # There is nothing else to do
-        endTimerFunction()
-        return
+    # The thread will run continuously until the server is shutting down
+    while not stop:
+        # Set variable to True - the function started its execution
+        # This is used when the server is closing, the variable will tell the function to wait until this function ends
+        checking_data_execution = True
+
+        print(Texts.checking_database % datetime.now().strftime("%H:%M:%S"))
+        # Get database data as dictionary
+        data = db.child(Constants.data_path).get().val()
+        # There is no data in database or something was wrong in receiving data
+        if data is None:
+            print(Texts.no_database_data)
+        else:
+            # Convert the received database data to a list
+            result = Utils.convertToList(data)
+            # Check if the dictionary->list conversion was successful
+            if result:
+                # Check the data and write to database if needed
+                checkAndWriteData(result, data)
+        # End the procedure
+        print(Texts.string_done)
+        # Set variable to False - the function ended its execution
+        checking_data_execution = False
+        time.sleep(Constants.check_database_interval)
+    print(Texts.thread_closing % Texts.thread_checking_database)
+
+
+def checkAndWriteData(data_list, data):
+    """
+    Check the data from database:
+    -- remove old records;
+    -- calculate the weather condition for each region using their records;
+    -- update new weather data for each region;
+    -- delete regions that have no records.
+    :param data_list: is the data as list.
+    :param data: is the data that will checked.
+    :return: Nothing.
+    """
     # Get database dictionary as two list of regions and records
-    regions, records = Utils.getDataBaseLists(result, db)
+    regions, records = Utils.getDataBaseLists(data_list, db)
     # No valid regions or records received from database
     if regions is None or records is None:
         print(Texts.invalid_database_data)
-        endTimerFunction()
         return
     # If received valid data from database - check all data
     try:
         # Check database data
         records = Utils.checkDataBaseData(db, records, regions, data)
+        # Write the new records to Machine Learning dataframe
         Utils.writeRecordsInDataframe(records)
     # If something goes wrong
     except (TypeError, KeyError) as err:
         # Write the exception in logging
         logging.exception(str(err))
-    endTimerFunction()
-    return
 
 
 def closeServer():
     """
     When the user press any key or the specific commands, the server will start the stop process.
     - Closing the FireBase stream - the listener that triggers to any event in database.
-    - Closing the timer thread - this one call the <checkDataBaseInterval()> function every
+    - Closing the checking database thread - this one call the <checkDataBaseInterval()> function every
         <Constants.check_database_interval> to check the database content.
     - Saving the machine learning dataframe to a <Constants.cvs_local> file - dataframe is what the server learned and
         it is used in machine learning functions (predictions, calculating the mean values, etc).
     """
-    # Get the updated dataframe from <Machine_learning.py>
-    dataframe = Machine_learning.dataFrame
-    # Create timer - call function (parameter 2) after a time (parameter 1)
-    close_server_timer = Timer(Constants.check_for_closing_server_interval, closeServer, args=None, kwargs=None)
+    global stop
+    # Update the variable that notify all functions and threads that the server is shutting down
+    stop = True
     # The Firebase stream or the timer is in execution - wait until execution is done
-    if stream_execution is True or timer_execution is True:
+    if stream_execution is True or checking_data_execution is True:
+        # Create timer - call function (parameter 2) after a time (parameter 1)
+        # This timer will be used to recall this function when all execution methods are done
+        close_timer = threading.Timer(Constants.check_closing_server_interval, closeServer, args=None, kwargs=None)
         # The timer is not started - first call
-        if not close_server_timer.is_alive():
+        if not close_timer.is_alive():
             # Start the timer - call the function after specified time
-            close_server_timer.start()
+            close_timer.start()
         else:
             # The timer is started - run again until the Firebase stream and timer execution is done
-            close_server_timer.run()
+            close_timer.run()
     else:
         print(Texts.start_stop_server)
         print(Texts.stream_closing, end='')
         # Closing the FireBase stream - the listener that triggers to any event in database.
         my_stream.close()
         print(Texts.string_done)
-        print(Texts.timer_closing, end='')
-        # Closing the timer thread - this one call the <checkDataBaseInterval()> function every
-        # <Constants.check_database_interval> to check the database content.
-        timer.cancel()
-        print(Texts.string_done)
         print(Texts.saving_machine_learning_dataframe % Constants.cvs_local, end='')
+        # Get the updated dataframe from <Machine_learning.py>
+        dataframe = Machine_learning.dataFrame
         # Saving the machine learning dataframe to a <Constants.cvs_local> file - dataframe is what the server
         # learned and it is used in machine learning functions (predictions, calculating the mean values, etc).
         dataframe.to_csv(Constants.cvs_local, index=False)
@@ -174,37 +179,46 @@ def closeServer():
         return
 
 
-def exec_command():
-    string = None
-    if string is None:
-        # Waiting for any key to stop the program and close stream
-        string = input("Ready to read command.\n")
-    if string == 's' or string == 'stop':
+def exec_command(_command):
+    print(Texts.processing_command)
+    if _command is None:
+        print(Texts.ready_for_command)
+        return
+    if _command == 's' or _command == 'stop':
+        # Close safety the server
         closeServer()
         return
-    elif len(string) > 0:
-        if string == 't' or string == 'test':
-            # Write test data in database
-            print(Texts.writing_test_data_to_database, end='')
-            db.child(Constants.data_path).set(Constants.get_data_test())
-            print(Texts.string_done)
+    elif _command == 't' or _command == 'test':
+        # Write test data in database
+        print(Texts.writing_test_data_to_database, end='')
+        db.child(Constants.data_path).set(Constants.get_data_test())
+        print(Texts.string_done)
     else:
         print(Texts.invalid_command)
-    exec_command()
+    print(Texts.ready_for_command)
 
 
 print("=== START ===")
+# This variable is True when the server is shutting down
+stop = False
 # Variable that indicates the stream is executing the function
 stream_execution = False
 # Variable that indicates the timer is executing the function
-timer_execution = False
-firebase = pyrebase.initialize_app(Constants.config)  # initialize firebase with that config
-db = firebase.database()  # Get firebase instance object
-my_stream = db.stream(stream_handler)  # Create a stream for listening to events (update, remove, set)
+checking_data_execution = False
 
-# Create timer - call function (parameter 2) after a time (parameter 1)
-timer = Timer(Constants.check_database_interval, checkDataBaseInterval, args=None, kwargs=None)
-# Start the timer
-timer.start()
+# Initialize the Firebase components
+firebase = pyrebase.initialize_app(Constants.config)    # initialize firebase with that config
+db = firebase.database()                                # get firebase instance object
+my_stream = db.stream(stream_handler)                   # create a stream for listening to events (update, remove, set)
 
-exec_command()
+# Create the thread that will listen to keyboard keys and store them as a potential command
+input_thread = threading.Thread(target=add_input)
+# Make the thread daemon - clear all resources after thread finish execution
+input_thread.daemon = True
+
+# Create the thread that will check the database content
+checking_thread = threading.Thread(target=checkDataBaseInterval)
+
+# Start all threads
+input_thread.start()
+checking_thread.start()

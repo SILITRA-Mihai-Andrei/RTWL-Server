@@ -24,6 +24,7 @@ from sklearn import linear_model
 
 # Hide UserWarning: Boolean Series key will be re-indexed to match DataFrame index.
 warnings.filterwarnings("ignore", category=UserWarning)
+pandas.set_option('display.max_rows', None)
 
 
 def getDateTime(datetime, form='%y:%m:%d:%H:%M'):
@@ -137,7 +138,7 @@ def getWeatherForRegion(records):
     # Create dataframe using the dictionary created above
     dataframe = pandas.DataFrame(weather_dataframe_dict, columns=Constants.dataframe_titles)
     # If there are multi weathers in one region - get the most common weather
-    dataframe = checkMultipleWeather(dataframe)
+    dataframe = getDominatingWeather(dataframe)
     # If there are no records - end the function
     if dataframe is None:
         return None, None
@@ -223,7 +224,7 @@ def getSliceOfDataFrame(dataframe, percent):
     return dataframe.tail(records_count)
 
 
-def checkMultipleWeather(dataframe):
+def getDominatingWeather(dataframe):
     """
     Check if a region has records with different weather type (ex: sun and rain).
     This function has a recursion that helps in removing old data until a single weather type data remains.
@@ -242,7 +243,6 @@ def checkMultipleWeather(dataframe):
     # Get the list of tables depending on weather type (see the table in this file header) and how many non-empty tables
     weather_list, counter = sortByWeatherCode(dataframe)
     # There are no tables with records
-    print(dataframe)
     if counter == 0:
         return None
     # There is one table with records
@@ -276,7 +276,7 @@ def checkMultipleWeather(dataframe):
             # Now all records, even the records with different weather type, are store in the same dataframe
             new_dataframe = new_dataframe.append(weather, ignore_index=False)
         # Call the function again and again, with all newest records, until dataframe remains with only one weather type
-        return checkMultipleWeather(new_dataframe)
+        return getDominatingWeather(new_dataframe)
     else:
         # Something was wrong
         return None
@@ -303,14 +303,12 @@ def existInDataframe(dataframe, record):
     dft = dataframe[dataframe_titles]
     # Store all records with column 'weather_code' equal to the one from the <frame>
     # In other words, get all records with the same <weather_code> as the <frame.weather_code>
-    weather_code_tables = dft[dft[dataframe_titles[0]] == record.data.code]
+    table = dft[dft[dataframe_titles[0]] == record.data.code]
     # If there is at least one valid record (same <weather_code> as the <frame.weather_code>)
-    if len(weather_code_tables) > 0:
+    if len(table) > 0:
         # Get all records with the same <temperature> as <frame.temperature>
-        if len(weather_code_tables[dataframe_titles[1]][weather_code_tables[dataframe_titles[1]] ==
-                                                        record.data.temperature]) > 0:
-            if len(weather_code_tables[dataframe_titles[2]][weather_code_tables[dataframe_titles[2]] ==
-                                                            record.data.humidity]) > 0:
+        if len(table[dataframe_titles[1]][table[dataframe_titles[1]] == record.data.temperature]) > 0:
+            if len(table[dataframe_titles[2]][table[dataframe_titles[2]] == record.data.humidity]) > 0:
                 return True
     return False
 
