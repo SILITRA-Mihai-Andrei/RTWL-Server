@@ -333,38 +333,8 @@ def writeRecordsInDataframe(records):
             # Check if the record is already wrote in dataframe (ignoring the record name - the record date and time)
             if not Machine_learning.existInDataframe(Machine_learning.dataFrame, record) and record is not None:
                 # Write in the dataframe the new record values
-                Machine_learning.dataFrame.loc[len(Machine_learning.dataFrame)] = [
-                    record.name, record.data.code, record.data.temperature, record.data.humidity, record.data.air
-                ]
-
-
-def handleRecursionError(timer, stream):
-    """
-    Handle the RecursionError threw when callback stack is full, after many callback.
-
-    :param timer: threading.Timer object that will recall the checkDataBaseInterval() function again and again,
-        after each Constants.check_database_interval seconds. This will throw RecursionError exception, which is handled
-        here.
-    :param stream: The database stream, which is listening for events in database (write, update, remove). In this
-        function it will be closed and restarted to clean the stack.
-    :return: Nothing.
-    """
-    try:
-        # Call the function again after <check_database_interval> minutes
-        timer.run()
-    except RecursionError as err:
-        # Write the exception in logging
-        logging.exception(str(err))
-        # Exception: when the callback stack is full
-        print("################### RecursionError #######################")
-        # Remove database listener
-        stream.close()
-        # Stop call function timer
-        timer.cancel()
-        # Restart database listener
-        stream.start()
-        # Call the function again after <check_database_interval> minutes
-        timer.run()
+                Machine_learning.dataFrame.loc[len(Machine_learning.dataFrame)] = \
+                    [record.name, record.data.code, record.data.temperature, record.data.humidity, record.data.air]
 
 
 def getSecondsFromStringDateTime(date_time):
@@ -404,3 +374,20 @@ def getWeatherString(index):
     :return: String -> The weather title.
     """
     return Texts.weather_titles[index]
+
+
+def convertToList(data):
+    """
+    Convert a dictionary to a list.
+    :param data: is the dictionary.
+    """
+    try:
+        # Try to create a list from dictionary
+        result = list(data.items())
+        # Successfully created
+        # Return the list
+        return result
+    except Exception as err:
+        # Couldn't convert the dictionary to a list
+        print(err)
+        return None
