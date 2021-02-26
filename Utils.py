@@ -61,12 +61,13 @@ def isRecordNameValid(record):
     return True
 
 
-def olderThan(record):
+def olderThan(record, value=Constants.older_than):
     """
-    Check if a record is older than <Constants.older_than> value.
+    Check if a record is older than value.
 
     :param record: The record name, which is the date and time when was wrote.
-    :return: Boolean -> Is the record older than Constants.older_than ? True : False
+    :param value: The number of minutes after the record is considered old.
+    :return: Boolean -> Is the record older than value ? True : False
     """
     # Check first if the record is valid
     if isRecordNameValid(record):
@@ -83,7 +84,7 @@ def olderThan(record):
             # Change the current hour in minutes and add the current minutes - how many minutes passed today
             minutes = int(splitted_date[3]) * 60 + int(splitted_date[4])
             # Check if the difference is bigger than the constant - the record is too old and must be deleted
-            if int(minutes) - int(record_minutes) > Constants.older_than:
+            if int(minutes - record_minutes) >= value:
                 return True
             else:
                 return False
@@ -188,7 +189,7 @@ def getWeatherIndex(code, return_if_none=Constants.return_value_index_of_weather
     index = 0
     for i in [100, 200, 300, 400]:
         for j in [0, 33, 66]:
-            if inWeatherCodeRange(code, i+j, i+j+33):
+            if inWeatherCodeRange(code, i + j, i + j + 33):
                 return index
             index += 1
     return return_if_none
@@ -244,11 +245,11 @@ def checkDataBaseData(db, records, regions, data):
                 # Add a None object in the current position of the record
                 records_list.insert(j, None)
                 # Remove the record from records list - remaining a None object instead
-                records_list.remove(records_list.__getitem__(j+1))
+                records_list.remove(records_list.__getitem__(j + 1))
                 # Print a message in terminal for removing the current record
                 print(Texts.removing_record % record)
                 # Check if this record is the last one in list
-                if len(records_list) == j+1:
+                if len(records_list) == j + 1:
                     # The region will no longer have records - because the current one was removed
                     print(Texts.region_deleted % region)
                     # Delete the region from 'weather', 'dangers' and 'predictions' nodes
@@ -300,6 +301,15 @@ def writeRegionWeather(data, db):
                      'air': weather_list[i].air})
                 # Print a message in terminal
                 print(Texts.updating_weather_for_region % regions[i], end=' ')
+
+                # Check if the last prediction time is too old
+                if writeRegionWeather.last_prediction_time is None \
+                        or olderThan(writeRegionWeather.last_prediction_time, Constants.prediction_interval):
+                    # Create new predictions
+                    Machine_learning.createPrediction(db, regions[i], weather_list[i])
+                    # Update the last prediction time
+                    writeRegionWeather.last_prediction_time = getTime()
+
                 # If there is a danger state in the current region
                 if danger_list[i] is not None:
                     # Write the danger state to database
@@ -335,6 +345,10 @@ def writeRecordsInDataframe(records):
                 # Write in the dataframe the new record values
                 Machine_learning.dataFrame.loc[len(Machine_learning.dataFrame)] = \
                     [record.name, record.data.code, record.data.temperature, record.data.humidity, record.data.air]
+                # Split the dataframe (containing all records in database) in small tables by weather code
+                # Each small table contains weather codes for a single weather intensity (see table in this file header)
+                Machine_learning.weather_data_frame_list, Machine_learning.tables_count = \
+                    Machine_learning.sortByWeatherCode(Machine_learning.dataFrame)
 
 
 def getSecondsFromStringDateTime(date_time):

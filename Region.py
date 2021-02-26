@@ -1,9 +1,9 @@
-import Utils
+import Texts
 from Record import Record
 
 
 class Region(object):
-    name = Utils.default_name
+    name = Texts.default_name
     records = [Record]
 
     def __init__(self, name, _dict):
