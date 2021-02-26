@@ -189,7 +189,7 @@ def getWeatherIndex(code, return_if_none=Constants.return_value_index_of_weather
     index = 0
     for i in [100, 200, 300, 400]:
         for j in [0, 33, 66]:
-            if inWeatherCodeRange(code, i+j, i+j+33):
+            if inWeatherCodeRange(code, i + j, i + j + 33):
                 return index
             index += 1
     return return_if_none
@@ -245,11 +245,11 @@ def checkDataBaseData(db, records, regions, data):
                 # Add a None object in the current position of the record
                 records_list.insert(j, None)
                 # Remove the record from records list - remaining a None object instead
-                records_list.remove(records_list.__getitem__(j+1))
+                records_list.remove(records_list.__getitem__(j + 1))
                 # Print a message in terminal for removing the current record
                 print(Texts.removing_record % record)
                 # Check if this record is the last one in list
-                if len(records_list) == j+1:
+                if len(records_list) == j + 1:
                     # The region will no longer have records - because the current one was removed
                     print(Texts.region_deleted % region)
                     # Delete the region from 'weather', 'dangers' and 'predictions' nodes

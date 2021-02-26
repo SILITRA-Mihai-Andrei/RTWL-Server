@@ -18,7 +18,7 @@ weather_titles = {
 
 # Messages for firebase events
 checking_database = '\nChecking database content - %s\n' \
-    '------------------------------------'
+                    '------------------------------------'
 removing_record = 'Removing old record %s.'
 invalid_database_data = 'Invalid Database data'
 updating_weather_for_region = 'Updating weather for region %s.'
@@ -42,7 +42,6 @@ thread_closing = 'Thread [%s] stopped'
 thread_commands = 'commands'
 thread_checking_database = 'database check records'
 saving_machine_learning_dataframe = 'Saving the machine learning dataframe to %s...'
-
 
 # Dangers dictionary
 danger_dict = {

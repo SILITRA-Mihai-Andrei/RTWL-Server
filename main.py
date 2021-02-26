@@ -214,9 +214,9 @@ stream_execution = False
 checking_data_execution = False
 
 # Initialize the Firebase components
-firebase = pyrebase.initialize_app(Constants.config)    # initialize firebase with that config
-db = firebase.database()                                # get firebase instance object
-my_stream = db.stream(stream_handler)                   # create a stream for listening to events (update, remove, set)
+firebase = pyrebase.initialize_app(Constants.config)  # initialize firebase with that config
+db = firebase.database()  # get firebase instance object
+my_stream = db.stream(stream_handler)  # create a stream for listening to events (update, remove, set)
 
 # Create the thread that will listen to keyboard keys and store them as a potential command
 input_thread = threading.Thread(target=add_input)

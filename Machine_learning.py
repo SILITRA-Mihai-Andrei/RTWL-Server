@@ -126,7 +126,8 @@ def createPrediction(db, region, weather):
     the second dataframe contains the records with the same weather category (ex: Sun, Rain),
     the third dataframe contains all the records.
 
-    Creates a list of lists that contains predicted weather code, the probability and the time for which is predicted.
+    Creates a list of lists that contains predicted weather code, temperature and humidity,
+    the probability for each one and the time for which is predicted.
 
     The prediction will use dataframes with old records and will create a relationship between date and time (if exists)
 
@@ -151,7 +152,7 @@ def createPrediction(db, region, weather):
     # In this list will be appended the dataframes with the same weather category (Sun, Rain, Wind)
     frames = []
     # Loop through all 3 weather intensities (0-33, 34-66, 67-99)
-    for i in range(_index, _index+3):
+    for i in range(_index, _index + 3):
         # The list (passed as parameter below) is created in the main body of this file
         # It contains a list of dataframes, each one having only records with a weather intensity
         # ex: the first dataframe contains all records for Sunny weather
@@ -173,12 +174,15 @@ def createPrediction(db, region, weather):
         time = Constants.getDateTimeDelta(datetime.now(), '+', minutes=i)
         # Loop through all list of dataframes
         for dataframe in lists:
-            # Store the prediction for the current loop
-            predicted = predict(
-                    dataframe,                          # the current dataframe in loop (3 are used for prediction)
-                    [Constants.dataframe_titles[0]],    # use to select the 'date' column in dataframe used to predict
-                    [time],                             # the value of the 'date' column that will be related
-                    [Constants.dataframe_titles[1]])    # use to select the 'weather_code' column in dataframe
+            # Here will be appended all the predictions for each field (code, temperature, humidity)
+            predicted = []
+            for column in [Constants.dataframe_titles[1], Constants.dataframe_titles[2], Constants.dataframe_titles[3]]:
+                # Store the prediction for the current loop
+                predicted.append(predict(
+                    dataframe,  # the current dataframe in loop (3 are used for prediction)
+                    [Constants.dataframe_titles[0]],  # use to select the 'date' column in dataframe used to predict
+                    [time],  # the value of the 'date' column that will be related
+                    [column]))  # use to select the column in dataframe
             # Append to list the prediction for the current dataframe
             p.append(predicted)
         # Append to list the predictions and the date-time for which prediction was made
@@ -193,6 +197,8 @@ def writePrediction(db, region, predictions):
 
     The predictions will be cumulated and made an average value.
 
+    The prediction is made for 3 fields: weather code, temperature and humidity. Each one with own probability.
+
     :param db: is the database reference, used to write the data to database.
     :param region: is the region for which the predictions are calculated.
     :param predictions: the list of predictions for each date and time.
@@ -202,20 +208,32 @@ def writePrediction(db, region, predictions):
     db.child(Constants.predictions_path).child(region).remove()
     # Loop through all the predictions for each prediction date and time
     for i in predictions:
-        r = 0           # the percent of probability for the current prediction
-        code = 0        # the weather code of the current prediction
-        counter = 0     # count how many predictions are valid - used for average calculation
+        r = [0, 0, 0]  # the percent of probability for the current prediction and field
+        values = [0, 0, 0]  # the weather code of the current prediction
+        counter = [0, 0, 0]  # count how many predictions are valid - used for average calculation
         # Loop through all the predictions of the current prediction date and time
         for j in i[0]:
-            # Check if the prediction is valid
-            if j[0] is not None:
-                code += j[0][0][0]  # add the current predicted weather code
-                r += abs(j[1])      # add the current prediction probability
-                counter += 1        # add one more successful prediction
+            if j is not None and j[0] is not None:
+                # Stores the index of the field
+                # The loop will calculate average values for each field
+                index = 0
+                # Loop through all fields values (weather code, temperature, humidity)
+                # index=0 for weather code, index=1 for temperature and index=2 for humidity
+                for k in j:
+                    # Check if the prediction values is valid
+                    if k is not None and k[0] is not None and k[1] is not None:
+                        values[index] += k[0][0][0]  # add the current value for the current field
+                        r[index] += abs(k[1])  # add the current prediction probability
+                        counter[index] += 1  # add one more successful prediction calculated
+                    index += 1  # go to the next field
         # Write to database the region with the current prediction date and time and with predicted values
         db.child(Constants.predictions_path).child(region).child(i[1]).set(
-            {'code': int(code/counter),             # calculate the average weather code
-             'probability': int(r/counter*100)})    # calculate the average prediction probability
+            {'code': int(values[0] / counter[0]),  # average weather code
+             'code_p': int(r[0] / counter[0] * 100),  # average probability for weather code
+             'temperature': int(values[1] / counter[1]),  # average temperature
+             'temperature_p': int(r[1] / counter[1] * 100),  # average probability for temperature
+             'humidity': int(values[2] / counter[2]),  # average humidity
+             'humidity_p': int(r[2] / counter[2] * 100)})  # average probability for humidity
 
 
 def getWeatherForRegion(records):
