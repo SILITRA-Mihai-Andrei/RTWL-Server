@@ -198,6 +198,8 @@ def writePrediction(db, region, predictions):
     :param predictions: the list of predictions for each date and time.
     :return: Nothing.
     """
+    # Remove the old predictions
+    db.child(Constants.predictions_path).child(region).remove()
     # Loop through all the predictions for each prediction date and time
     for i in predictions:
         r = 0           # the percent of probability for the current prediction
@@ -434,3 +436,5 @@ dataFrame = pandas.DataFrame(data_dict, columns=Constants.dataframe_titles)
 # Split the dataframe (containing all records in database) in small tables by weather code
 # Each small table contains weather codes for a single weather intensity (see table in this file header)
 weather_data_frame_list, tables_count = sortByWeatherCode(dataFrame)
+# This will start new predictions when the server is started
+Utils.writeRegionWeather.last_prediction_time = None

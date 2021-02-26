@@ -28,6 +28,7 @@ region_deleted_delete_its_data = "Region %s has no more records. Delete its weat
 string_nothing_to_do = 'Nothing to do.'
 string_done = 'Done.'
 no_database_data = 'No data in database.'
+no_database_predictions = 'No predictions in database.'
 ready_for_command = "Ready to read command.\n"
 processing_command = "Processing command..."
 invalid_command = 'Invalid command.'

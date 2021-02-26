@@ -61,12 +61,13 @@ def isRecordNameValid(record):
     return True
 
 
-def olderThan(record):
+def olderThan(record, value=Constants.older_than):
     """
-    Check if a record is older than <Constants.older_than> value.
+    Check if a record is older than value.
 
     :param record: The record name, which is the date and time when was wrote.
-    :return: Boolean -> Is the record older than Constants.older_than ? True : False
+    :param value: The number of minutes after the record is considered old.
+    :return: Boolean -> Is the record older than value ? True : False
     """
     # Check first if the record is valid
     if isRecordNameValid(record):
@@ -83,7 +84,7 @@ def olderThan(record):
             # Change the current hour in minutes and add the current minutes - how many minutes passed today
             minutes = int(splitted_date[3]) * 60 + int(splitted_date[4])
             # Check if the difference is bigger than the constant - the record is too old and must be deleted
-            if int(minutes) - int(record_minutes) > Constants.older_than:
+            if int(minutes - record_minutes) >= value:
                 return True
             else:
                 return False
@@ -301,7 +302,13 @@ def writeRegionWeather(data, db):
                 # Print a message in terminal
                 print(Texts.updating_weather_for_region % regions[i], end=' ')
 
-                Machine_learning.createPrediction(db, regions[i], weather_list[i])
+                # Check if the last prediction time is too old
+                if writeRegionWeather.last_prediction_time is None \
+                        or olderThan(writeRegionWeather.last_prediction_time, Constants.prediction_interval):
+                    # Create new predictions
+                    Machine_learning.createPrediction(db, regions[i], weather_list[i])
+                    # Update the last prediction time
+                    writeRegionWeather.last_prediction_time = getTime()
 
                 # If there is a danger state in the current region
                 if danger_list[i] is not None:

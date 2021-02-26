@@ -94,7 +94,7 @@ def checkDataBaseInterval():
         checking_data_execution = True
 
         print(Texts.checking_database % datetime.now().strftime("%H:%M:%S"))
-        # Get database data as dictionary
+        # Get database data from /data/ node as dictionary
         data = db.child(Constants.data_path).get().val()
         # There is no data in database or something was wrong in receiving data
         if data is None:

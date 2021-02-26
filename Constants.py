@@ -7,9 +7,10 @@ import Config
 # Firebase configuration
 config = Config.firebase
 
-check_database_interval = 5  # How often to check the database in seconds
-check_closing_server_interval = 1  # How often to check the database in seconds
-older_than = 60  # Record older than <minutes>
+check_database_interval = 5         # how often to check the database in seconds
+check_closing_server_interval = 1   # how often to check the database in seconds
+prediction_interval = 5             # how often to create new predictions
+older_than = 60                     # Record older than <minutes>
 
 min_weather_code = 100
 max_weather_code = 499
